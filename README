@@ -12,7 +12,7 @@ The goals of this project are:
 Inspiration
 -----------
 The inspiration to start this this project was the exercises on 
-[Khan Academy|Practice](http://http://www.khanacademy.org/exercisedashboard).
+[Khan Academy|Practice](http://http://www.khanacademy.org/exercisedashboard "Khan Academy").
 The idea of the practicing until one gets a streak of 10 correctly solved
 problems in a row works very well in a class room setting, where students
 normally dislike drill exercises.
@@ -28,15 +28,15 @@ a high school audience.
 Programming Language
 --------------------
 This project will use [Racket](http://www.racket-lang.org/) in the form 
-of [Whalesong](http://hashcollision.org/whalesong/).
+of [Whalesong](http://hashcollision.org/whalesong/ "Whalesong").
 
 Whalesong allows the main components to be written in Racket and still
 use relevant JavaScript libraries.
 
-* [Raphaël](http://raphaeljs.com) is used for graphical exercises
-* [MathJax](http://www.mathjax.org) is used to display mathematical expressions
-* [Khan Academy's Scratchpad](http://github.com/Khan/khan-exercises/blob/master/utils/scratchpad.js)
-  orignally [Antimatter15's Scratcpad](http://github.com/antimatter15/scratchpad) 
+* [Raphaël](http://raphaeljs.com "Raphaël) is used for graphical exercises
+* [MathJax](http://www.mathjax.org "MathJax") is used to display mathematical expressions
+* [Khan Academy's Scratchpad](http://github.com/Khan/khan-exercises/blob/master/utils/scratchpad.js "Scratchpad")
+  orignally [Antimatter15's Scratcpad](http://github.com/antimatter15/scratchpad "Scratchpad") 
   is used as, well, a scratchpad.
   
 Contact
