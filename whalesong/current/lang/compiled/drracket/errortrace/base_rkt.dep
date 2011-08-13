@@ -1,1 +1,0 @@
-("5.1.2" ("9c73e9ba5548657e4b770df2e8742ccc304baad7" . "e9c053914ea9d0cc99243fed7299baf2fc00948a") (collects #"errortrace" #"errortrace-key.rkt") #"/Users/soegaard/Dropbox/GitHub/stxmat-exercises/whalesong/current/lang/kernel.rkt" (collects #"racket" #"private" #"modbeg.rkt") (collects #"s-exp" #"lang" #"reader.rkt"))

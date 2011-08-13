@@ -1,1 +1,0 @@
-("5.1.2" ("85c0ff6e243ddac606d76757e5e142e2bbd1e795" . "680f22836e62dc805de8a44162e3a45622ff315b") (collects #"racket" #"base.rkt") (collects #"racket" #"bool.rkt") #"/Users/soegaard/Dropbox/GitHub/stxmat-exercises/whalesong/dyoo-whalesong-1da48b3/version-case/version-misc.rkt" (collects #"racket" #"base" #"lang" #"reader.rkt"))

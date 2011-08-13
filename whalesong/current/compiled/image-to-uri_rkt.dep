@@ -1,1 +1,0 @@
-("5.1.2" ("87b875cfbd2881fdfc055d186b8852aef6e20ddf" . "4e06e9dc9a3b93f1d7b644bc4429a20ade238d2f") (collects #"racket" #"base.rkt") (collects #"file" #"convertible.rkt") (collects #"net" #"base64.rkt") (collects #"racket" #"contract.rkt") (collects #"2htdp" #"image.rkt") (collects #"racket" #"base" #"lang" #"reader.rkt"))
