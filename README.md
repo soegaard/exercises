@@ -12,7 +12,7 @@ The goals of this project are:
 Inspiration
 -----------
 The inspiration to start this this project was the exercises on 
-[Khan Academy|Practice](http://http://www.khanacademy.org/exercisedashboard "Khan Academy").
+[Khan Academy | Practice](http://http://www.khanacademy.org/exercisedashboard "Khan Academy").
 The idea of the practicing until one gets a streak of 10 correctly solved
 problems in a row works very well in a class room setting, where students
 normally dislike drill exercises.
