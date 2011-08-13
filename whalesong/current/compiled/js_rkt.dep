@@ -1,0 +1,1 @@
+("5.1.2" ("f3d2c47774df18c8a2f560edab0f2162198455db" . "ab68e135d16d51b7f5df8c75bd5628d5273965ab") #"/Users/soegaard/Dropbox/GitHub/stxmat-exercises/whalesong/dyoo-whalesong-1da48b3/lang/base.rkt" #"/Users/soegaard/Dropbox/GitHub/stxmat-exercises/whalesong/dyoo-whalesong-1da48b3/js/main.rkt" (collects #"s-exp" #"lang" #"reader.rkt"))

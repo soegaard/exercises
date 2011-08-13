@@ -1,0 +1,1 @@
+("5.1.2" ("be4ccb800df2c477301a4cb24def944cbae816a0" . "f0d14488b7d11b6c89457c53361d2fec8f0b746f") (collects #"racket" #"base.rkt") #"/Users/soegaard/Dropbox/GitHub/stxmat-exercises/whalesong/dyoo-whalesong-1da48b3/private/prefix-dispatcher.rkt" (collects #"racket" #"cmdline.rkt") (collects #"racket" #"base" #"lang" #"reader.rkt"))

@@ -1,0 +1,1 @@
+("5.1.2" ("62b7ee197b8365213768b910407d1542d8b2b9a2" . "05acf620c2e83b39e50f568231000d6663390e4a") (collects #"typed" #"racket" #"base.rkt") #"/Users/soegaard/Dropbox/GitHub/stxmat-exercises/whalesong/dyoo-whalesong-1da48b3/compiler/lexical-structs.rkt" (collects #"typed" #"racket" #"base" #"lang" #"reader.rkt"))
