@@ -143,7 +143,7 @@
         ((exercise-check-answer (list-ref all current)) ans))
       (make-exercise title summary new-problem! problem-description hints check-answer))))
 
-(define power-all-kinds-exercise 
+(define (power-all-kinds-exercise)
   (combine-exercises "Powers" "Combines all power exercises" 
                      power1-exercise power2-exercise))
 
@@ -419,8 +419,8 @@
                  <div id='answer_area_title'>Answer</div>
                  <div><input id='answer_input' type='text' value='7' /></div>
                  <input id='answer_button' type='button' onclick='@(call-plt-thunk 'on-answer-button)' value='Check Answer'/>
-                 <div><img id='sad' style='display: none;' src='face-sad.gif'/></div>
-                 <div><img id='happy' style='display: none;' src='face-happy.gif'/></div>
+                 <div><img id='sad' style='display: none;' src='../pics/face-sad.gif'/></div>
+                 <div><img id='happy' style='display: none;' src='../pics/face-happy.gif'/></div>
              </div>
              <div id='help_area'>
                  <div id='help_area_title'>Need help?</div>
