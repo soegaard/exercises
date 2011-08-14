@@ -44793,23 +44793,17 @@ for (param in params) {
 }MACHINE.trampoline(_start2146); })(MACHINE, function() { (function(MACHINE, success, fail, params) {
 var param;
 var RUNTIME = plt.runtime;
-var _beforePopPrompt2149 = function(MACHINE){
+var _start2155 = function(MACHINE){
     if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _beforePopPrompt2149;
+        throw _start2155;
     }
-    
-};
-
-var _onReturn2157 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _onReturn2157;
-    }
-    MACHINE.env.push([]);  MACHINE.env[MACHINE.env.length-1].names = [];
-MACHINE.modules["whalesong/js.rkt"].prefix = MACHINE.env[MACHINE.env.length - 1 - 0];
+    MACHINE.control.push(new RUNTIME.PromptFrame(_beforePopPrompt2149, RUNTIME.DEFAULT_CONTINUATION_PROMPT_TAG));
+MACHINE.env.push([false]);  MACHINE.env[MACHINE.env.length-1].names = [false];
+MACHINE.modules["whalesong/lang/base.rkt"]=new RUNTIME.ModuleRecord("base", _moduleEntry2151);
+MACHINE.val = MACHINE.val;
 MACHINE.env.length = MACHINE.env.length - 1;
 MACHINE.proc = MACHINE.control[MACHINE.control.length-1].label;
 MACHINE.control.pop();
-MACHINE.modules["whalesong/js.rkt"].finalizeModuleInvokation();
 return (MACHINE.proc)(MACHINE);
 };
 
@@ -44821,65 +44815,44 @@ var _beforePopPromptMultiple2148 = function(MACHINE){
 return (_beforePopPrompt2149)(MACHINE);
 };
 
-var _start2158 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _start2158;
-    }
-    MACHINE.control.push(new RUNTIME.PromptFrame(_beforePopPrompt2149, RUNTIME.DEFAULT_CONTINUATION_PROMPT_TAG));
-MACHINE.env.push([false]);  MACHINE.env[MACHINE.env.length-1].names = [false];
-MACHINE.modules["whalesong/js.rkt"]=new RUNTIME.ModuleRecord("js", _moduleEntry2151);
-MACHINE.val = MACHINE.val;
-MACHINE.env.length = MACHINE.env.length - 1;
-MACHINE.proc = MACHINE.control[MACHINE.control.length-1].label;
-MACHINE.control.pop();
-return (MACHINE.proc)(MACHINE);
-};
-
 var _onReturn2154 = function(MACHINE){
     if(--MACHINE.callsBeforeTrampoline < 0) {
         throw _onReturn2154;
     }
-    if ((MACHINE.modules["whalesong/js/main.rkt"] !== undefined) !== false)
-{
-if (MACHINE.modules["whalesong/js/main.rkt"].isInvoked !== false)
-{
-return (_onReturn2157)(MACHINE);
-} else {
-MACHINE.control.push(new RUNTIME.CallFrame(_onReturn2157, MACHINE.proc));
-return (MACHINE.modules["whalesong/js/main.rkt"].label)(MACHINE);
-}
-} else {
-MACHINE.params.currentOutputPort.writeDomNode(MACHINE, $('<span/>').text("DEBUG: the module whalesong/js/main.rkt hasn't been linked in!!!"));
-return (_onReturn2157)(MACHINE);
-}
+    MACHINE.env.push([]);  MACHINE.env[MACHINE.env.length-1].names = [];
+MACHINE.modules["whalesong/lang/base.rkt"].prefix = MACHINE.env[MACHINE.env.length - 1 - 0];
+MACHINE.env.length = MACHINE.env.length - 1;
+MACHINE.proc = MACHINE.control[MACHINE.control.length-1].label;
+MACHINE.control.pop();
+MACHINE.modules["whalesong/lang/base.rkt"].finalizeModuleInvokation();
+return (MACHINE.proc)(MACHINE);
+};
+
+var _beforePopPrompt2149 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _beforePopPrompt2149;
+    }
+    
 };
 
 var _moduleEntry2151 = function(MACHINE){
     if(--MACHINE.callsBeforeTrampoline < 0) {
         throw _moduleEntry2151;
     }
-    MACHINE.modules["whalesong/js.rkt"].isInvoked = true;
-if ((MACHINE.modules["whalesong/lang/base.rkt"] !== undefined) !== false)
+    MACHINE.modules["whalesong/lang/base.rkt"].isInvoked = true;
+if ((MACHINE.modules["collects/racket/private/modbeg.rkt"] !== undefined) !== false)
 {
-if (MACHINE.modules["whalesong/lang/base.rkt"].isInvoked !== false)
+if (MACHINE.modules["collects/racket/private/modbeg.rkt"].isInvoked !== false)
 {
 return (_onReturn2154)(MACHINE);
 } else {
 MACHINE.control.push(new RUNTIME.CallFrame(_onReturn2154, MACHINE.proc));
-return (MACHINE.modules["whalesong/lang/base.rkt"].label)(MACHINE);
+return (MACHINE.modules["collects/racket/private/modbeg.rkt"].label)(MACHINE);
 }
 } else {
-MACHINE.params.currentOutputPort.writeDomNode(MACHINE, $('<span/>').text("DEBUG: the module whalesong/lang/base.rkt hasn't been linked in!!!"));
+MACHINE.params.currentOutputPort.writeDomNode(MACHINE, $('<span/>').text("DEBUG: the module collects/racket/private/modbeg.rkt hasn't been linked in!!!"));
 return (_onReturn2154)(MACHINE);
 }
-};
-
-var _onReturnMultiple2156 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _onReturnMultiple2156;
-    }
-    MACHINE.env.length = MACHINE.env.length - (MACHINE.argcount - 1);
-return (_onReturn2157)(MACHINE);
 };
 
 var _onReturnMultiple2153 = function(MACHINE){
@@ -44891,7 +44864,6 @@ return (_onReturn2154)(MACHINE);
 };
 
 _onReturn2154.multipleValueReturn = _onReturnMultiple2153;
-_onReturn2157.multipleValueReturn = _onReturnMultiple2156;
 _beforePopPrompt2149.multipleValueReturn = _beforePopPromptMultiple2148;
 MACHINE.params.currentErrorHandler = fail;
 MACHINE.params.currentSuccessHandler = success;
@@ -44899,16 +44871,16 @@ for (param in params) {
     if (params.hasOwnProperty(param)) {
         MACHINE.params[param] = params[param];
     }
-}MACHINE.trampoline(_start2158); })(MACHINE, function() { (function(MACHINE, success, fail, params) {
+}MACHINE.trampoline(_start2155); })(MACHINE, function() { (function(MACHINE, success, fail, params) {
 var param;
 var RUNTIME = plt.runtime;
-var _start2167 = function(MACHINE){
+var _start2175 = function(MACHINE){
     if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _start2167;
+        throw _start2175;
     }
-    MACHINE.control.push(new RUNTIME.PromptFrame(_beforePopPrompt2161, RUNTIME.DEFAULT_CONTINUATION_PROMPT_TAG));
+    MACHINE.control.push(new RUNTIME.PromptFrame(_beforePopPrompt2158, RUNTIME.DEFAULT_CONTINUATION_PROMPT_TAG));
 MACHINE.env.push([false]);  MACHINE.env[MACHINE.env.length-1].names = [false];
-MACHINE.modules["whalesong/lang/base.rkt"]=new RUNTIME.ModuleRecord("base", _moduleEntry2163);
+MACHINE.modules["collects/racket/private/modbeg.rkt"]=new RUNTIME.ModuleRecord("modbeg", _moduleEntry2172);
 MACHINE.val = MACHINE.val;
 MACHINE.env.length = MACHINE.env.length - 1;
 MACHINE.proc = MACHINE.control[MACHINE.control.length-1].label;
@@ -44916,225 +44888,24 @@ MACHINE.control.pop();
 return (MACHINE.proc)(MACHINE);
 };
 
-var _beforePopPrompt2161 = function(MACHINE){
+var _beforePopPrompt2158 = function(MACHINE){
     if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _beforePopPrompt2161;
+        throw _beforePopPrompt2158;
     }
     
 };
 
-var _beforePopPromptMultiple2160 = function(MACHINE){
+var _beforePopPromptMultiple2157 = function(MACHINE){
     if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _beforePopPromptMultiple2160;
+        throw _beforePopPromptMultiple2157;
     }
     MACHINE.env.length = MACHINE.env.length - MACHINE.argcount;
-return (_beforePopPrompt2161)(MACHINE);
+return (_beforePopPrompt2158)(MACHINE);
 };
 
-var _onReturnMultiple2165 = function(MACHINE){
+var _afterCall2164 = function(MACHINE){
     if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _onReturnMultiple2165;
-    }
-    MACHINE.env.length = MACHINE.env.length - (MACHINE.argcount - 1);
-return (_onReturn2166)(MACHINE);
-};
-
-var _onReturn2166 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _onReturn2166;
-    }
-    MACHINE.env.push([]);  MACHINE.env[MACHINE.env.length-1].names = [];
-MACHINE.modules["whalesong/lang/base.rkt"].prefix = MACHINE.env[MACHINE.env.length - 1 - 0];
-MACHINE.env.length = MACHINE.env.length - 1;
-MACHINE.proc = MACHINE.control[MACHINE.control.length-1].label;
-MACHINE.control.pop();
-MACHINE.modules["whalesong/lang/base.rkt"].finalizeModuleInvokation();
-return (MACHINE.proc)(MACHINE);
-};
-
-var _moduleEntry2163 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _moduleEntry2163;
-    }
-    MACHINE.modules["whalesong/lang/base.rkt"].isInvoked = true;
-if ((MACHINE.modules["collects/racket/private/modbeg.rkt"] !== undefined) !== false)
-{
-if (MACHINE.modules["collects/racket/private/modbeg.rkt"].isInvoked !== false)
-{
-return (_onReturn2166)(MACHINE);
-} else {
-MACHINE.control.push(new RUNTIME.CallFrame(_onReturn2166, MACHINE.proc));
-return (MACHINE.modules["collects/racket/private/modbeg.rkt"].label)(MACHINE);
-}
-} else {
-MACHINE.params.currentOutputPort.writeDomNode(MACHINE, $('<span/>').text("DEBUG: the module collects/racket/private/modbeg.rkt hasn't been linked in!!!"));
-return (_onReturn2166)(MACHINE);
-}
-};
-
-_onReturn2166.multipleValueReturn = _onReturnMultiple2165;
-_beforePopPrompt2161.multipleValueReturn = _beforePopPromptMultiple2160;
-MACHINE.params.currentErrorHandler = fail;
-MACHINE.params.currentSuccessHandler = success;
-for (param in params) {
-    if (params.hasOwnProperty(param)) {
-        MACHINE.params[param] = params[param];
-    }
-}MACHINE.trampoline(_start2167); })(MACHINE, function() { (function(MACHINE, success, fail, params) {
-var param;
-var RUNTIME = plt.runtime;
-var _moduleEntry2184 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _moduleEntry2184;
-    }
-    MACHINE.modules["collects/racket/private/modbeg.rkt"].isInvoked = true;
-MACHINE.env.push([MACHINE.params.currentNamespace["print-values"] || MACHINE.primitives["print-values"]]);  MACHINE.env[MACHINE.env.length-1].names = ["print-values"];
-MACHINE.modules["collects/racket/private/modbeg.rkt"].prefix = MACHINE.env[MACHINE.env.length - 1 - 0];
-MACHINE.control.push(new RUNTIME.PromptFrame(_beforePromptPop2186, RUNTIME.DEFAULT_CONTINUATION_PROMPT_TAG));
-MACHINE.val = new RUNTIME.Closure(_lamEntry96, (RUNTIME.makeArityAtLeast(0)), [], "print-values");
-MACHINE.env[MACHINE.env.length - 1 - 0][0] = MACHINE.val;
-MACHINE.proc = MACHINE.control[MACHINE.control.length-1].label;
-MACHINE.control.pop();
-return (MACHINE.proc)(MACHINE);
-};
-
-var _afterCall2172 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _afterCall2172;
-    }
-    MACHINE.val = MACHINE.env[MACHINE.env.length - 1 - 2];
-MACHINE.proc = MACHINE.env[MACHINE.env.length - 1 - 1];
-MACHINE.env[MACHINE.env.length - 1 - 1] = MACHINE.val;
-MACHINE.argcount = 2;
-if (typeof(MACHINE.proc) === 'function')
-{
-              if (! (typeof(MACHINE.proc) === 'function')) {
-                  RUNTIME.raiseOperatorIsNotPrimitiveProcedure(MACHINE, MACHINE.proc);
-              }
-              if (! RUNTIME.isArityMatching(MACHINE.proc.racketArity, MACHINE.argcount)) {
-                  RUNTIME.raiseArityMismatchError(MACHINE,
-                                                  MACHINE.proc,
-                                                  MACHINE.proc.racketArity,
-                                                  MACHINE.argcount);
-              }
-MACHINE.val = MACHINE.proc(MACHINE);
-MACHINE.env.length = MACHINE.env.length - MACHINE.argcount;
-return (_afterCall2176)(MACHINE);
-} else {
-              if (! (MACHINE.proc instanceof RUNTIME.Closure)) {
-                  RUNTIME.raiseOperatorIsNotClosure(MACHINE, MACHINE.proc);
-              }
-              if (! RUNTIME.isArityMatching(MACHINE.proc.racketArity, MACHINE.argcount)) {
-                  RUNTIME.raiseArityMismatchError(MACHINE,
-                                                  MACHINE.proc,
-                                                  MACHINE.proc.racketArity,
-                                                  MACHINE.argcount);
-              }
-MACHINE.control.push(new RUNTIME.CallFrame(_procReturn2178, MACHINE.proc));
-return ((MACHINE.proc).label)(MACHINE);
-}
-};
-
-var _procReturnMultiple2173 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _procReturnMultiple2173;
-    }
-    RUNTIME.raiseContextExpectedValuesError(MACHINE, 1);
-return (_procReturn2174)(MACHINE);
-};
-
-var _beforePopPrompt2170 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _beforePopPrompt2170;
-    }
-    
-};
-
-var _procReturn2178 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _procReturn2178;
-    }
-    return (_afterCall2176)(MACHINE);
-};
-
-var _beforePopPromptMultiple2169 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _beforePopPromptMultiple2169;
-    }
-    MACHINE.env.length = MACHINE.env.length - MACHINE.argcount;
-return (_beforePopPrompt2170)(MACHINE);
-};
-
-var _procReturnMultiple2177 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _procReturnMultiple2177;
-    }
-    MACHINE.env.length = MACHINE.env.length - (MACHINE.argcount - 1);
-return (_procReturn2178)(MACHINE);
-};
-
-var _lamEntry96 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _lamEntry96;
-    }
-    MACHINE.unspliceRestFromStack(0, (MACHINE.argcount - 0));
-MACHINE.env.push(undefined, undefined);
-MACHINE.env[MACHINE.env.length - 1 - 1] = MACHINE.primitives["for-each"];
-MACHINE.proc = MACHINE.primitives["current-print"];
-MACHINE.argcount = 0;
-if (typeof(MACHINE.proc) === 'function')
-{
-              if (! (typeof(MACHINE.proc) === 'function')) {
-                  RUNTIME.raiseOperatorIsNotPrimitiveProcedure(MACHINE, MACHINE.proc);
-              }
-              if (! RUNTIME.isArityMatching(MACHINE.proc.racketArity, MACHINE.argcount)) {
-                  RUNTIME.raiseArityMismatchError(MACHINE,
-                                                  MACHINE.proc,
-                                                  MACHINE.proc.racketArity,
-                                                  MACHINE.argcount);
-              }
-MACHINE.val = MACHINE.proc(MACHINE);
-MACHINE.env.length = MACHINE.env.length - MACHINE.argcount;
-MACHINE.env[MACHINE.env.length - 1 - 0] = MACHINE.val;
-return (_afterCall2172)(MACHINE);
-} else {
-              if (! (MACHINE.proc instanceof RUNTIME.Closure)) {
-                  RUNTIME.raiseOperatorIsNotClosure(MACHINE, MACHINE.proc);
-              }
-              if (! RUNTIME.isArityMatching(MACHINE.proc.racketArity, MACHINE.argcount)) {
-                  RUNTIME.raiseArityMismatchError(MACHINE,
-                                                  MACHINE.proc,
-                                                  MACHINE.proc.racketArity,
-                                                  MACHINE.argcount);
-              }
-MACHINE.control.push(new RUNTIME.CallFrame(_procReturn2174, MACHINE.proc));
-return ((MACHINE.proc).label)(MACHINE);
-}
-};
-
-var _beforePromptPop2186 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _beforePromptPop2186;
-    }
-    MACHINE.val = MACHINE.val;
-MACHINE.env.length = MACHINE.env.length - 1;
-MACHINE.proc = MACHINE.control[MACHINE.control.length-1].label;
-MACHINE.control.pop();
-MACHINE.modules["collects/racket/private/modbeg.rkt"].finalizeModuleInvokation();
-return (MACHINE.proc)(MACHINE);
-};
-
-var _procReturn2174 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _procReturn2174;
-    }
-    MACHINE.env[MACHINE.env.length - 1 - 0] = MACHINE.val;
-return (_afterCall2172)(MACHINE);
-};
-
-var _afterCall2176 = function(MACHINE){
-    if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _afterCall2176;
+        throw _afterCall2164;
     }
     MACHINE.env.push(undefined, undefined);
 MACHINE.env[MACHINE.env.length - 1 - 1] = MACHINE.primitives["apply"];
@@ -45176,13 +44947,176 @@ return ((MACHINE.proc).label)(MACHINE);
 }
 };
 
+var _procReturnMultiple2161 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _procReturnMultiple2161;
+    }
+    RUNTIME.raiseContextExpectedValuesError(MACHINE, 1);
+return (_procReturn2162)(MACHINE);
+};
+
+var _beforePromptPop2174 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _beforePromptPop2174;
+    }
+    MACHINE.val = MACHINE.val;
+MACHINE.env.length = MACHINE.env.length - 1;
+MACHINE.proc = MACHINE.control[MACHINE.control.length-1].label;
+MACHINE.control.pop();
+MACHINE.modules["collects/racket/private/modbeg.rkt"].finalizeModuleInvokation();
+return (MACHINE.proc)(MACHINE);
+};
+
+var _procReturn2162 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _procReturn2162;
+    }
+    MACHINE.env[MACHINE.env.length - 1 - 0] = MACHINE.val;
+return (_afterCall2160)(MACHINE);
+};
+
+var _moduleEntry2172 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _moduleEntry2172;
+    }
+    MACHINE.modules["collects/racket/private/modbeg.rkt"].isInvoked = true;
+MACHINE.env.push([MACHINE.params.currentNamespace["print-values"] || MACHINE.primitives["print-values"]]);  MACHINE.env[MACHINE.env.length-1].names = ["print-values"];
+MACHINE.modules["collects/racket/private/modbeg.rkt"].prefix = MACHINE.env[MACHINE.env.length - 1 - 0];
+MACHINE.control.push(new RUNTIME.PromptFrame(_beforePromptPop2174, RUNTIME.DEFAULT_CONTINUATION_PROMPT_TAG));
+MACHINE.val = new RUNTIME.Closure(_lamEntry96, (RUNTIME.makeArityAtLeast(0)), [], "print-values");
+MACHINE.env[MACHINE.env.length - 1 - 0][0] = MACHINE.val;
+MACHINE.proc = MACHINE.control[MACHINE.control.length-1].label;
+MACHINE.control.pop();
+return (MACHINE.proc)(MACHINE);
+};
+
+var _procReturnMultiple2165 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _procReturnMultiple2165;
+    }
+    MACHINE.env.length = MACHINE.env.length - (MACHINE.argcount - 1);
+return (_procReturn2166)(MACHINE);
+};
+
+var _lamEntry96 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _lamEntry96;
+    }
+    MACHINE.unspliceRestFromStack(0, (MACHINE.argcount - 0));
+MACHINE.env.push(undefined, undefined);
+MACHINE.env[MACHINE.env.length - 1 - 1] = MACHINE.primitives["for-each"];
+MACHINE.proc = MACHINE.primitives["current-print"];
+MACHINE.argcount = 0;
+if (typeof(MACHINE.proc) === 'function')
+{
+              if (! (typeof(MACHINE.proc) === 'function')) {
+                  RUNTIME.raiseOperatorIsNotPrimitiveProcedure(MACHINE, MACHINE.proc);
+              }
+              if (! RUNTIME.isArityMatching(MACHINE.proc.racketArity, MACHINE.argcount)) {
+                  RUNTIME.raiseArityMismatchError(MACHINE,
+                                                  MACHINE.proc,
+                                                  MACHINE.proc.racketArity,
+                                                  MACHINE.argcount);
+              }
+MACHINE.val = MACHINE.proc(MACHINE);
+MACHINE.env.length = MACHINE.env.length - MACHINE.argcount;
+MACHINE.env[MACHINE.env.length - 1 - 0] = MACHINE.val;
+return (_afterCall2160)(MACHINE);
+} else {
+              if (! (MACHINE.proc instanceof RUNTIME.Closure)) {
+                  RUNTIME.raiseOperatorIsNotClosure(MACHINE, MACHINE.proc);
+              }
+              if (! RUNTIME.isArityMatching(MACHINE.proc.racketArity, MACHINE.argcount)) {
+                  RUNTIME.raiseArityMismatchError(MACHINE,
+                                                  MACHINE.proc,
+                                                  MACHINE.proc.racketArity,
+                                                  MACHINE.argcount);
+              }
+MACHINE.control.push(new RUNTIME.CallFrame(_procReturn2162, MACHINE.proc));
+return ((MACHINE.proc).label)(MACHINE);
+}
+};
+
+var _procReturn2166 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _procReturn2166;
+    }
+    return (_afterCall2164)(MACHINE);
+};
+
+var _afterCall2160 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _afterCall2160;
+    }
+    MACHINE.val = MACHINE.env[MACHINE.env.length - 1 - 2];
+MACHINE.proc = MACHINE.env[MACHINE.env.length - 1 - 1];
+MACHINE.env[MACHINE.env.length - 1 - 1] = MACHINE.val;
+MACHINE.argcount = 2;
+if (typeof(MACHINE.proc) === 'function')
+{
+              if (! (typeof(MACHINE.proc) === 'function')) {
+                  RUNTIME.raiseOperatorIsNotPrimitiveProcedure(MACHINE, MACHINE.proc);
+              }
+              if (! RUNTIME.isArityMatching(MACHINE.proc.racketArity, MACHINE.argcount)) {
+                  RUNTIME.raiseArityMismatchError(MACHINE,
+                                                  MACHINE.proc,
+                                                  MACHINE.proc.racketArity,
+                                                  MACHINE.argcount);
+              }
+MACHINE.val = MACHINE.proc(MACHINE);
+MACHINE.env.length = MACHINE.env.length - MACHINE.argcount;
+return (_afterCall2164)(MACHINE);
+} else {
+              if (! (MACHINE.proc instanceof RUNTIME.Closure)) {
+                  RUNTIME.raiseOperatorIsNotClosure(MACHINE, MACHINE.proc);
+              }
+              if (! RUNTIME.isArityMatching(MACHINE.proc.racketArity, MACHINE.argcount)) {
+                  RUNTIME.raiseArityMismatchError(MACHINE,
+                                                  MACHINE.proc,
+                                                  MACHINE.proc.racketArity,
+                                                  MACHINE.argcount);
+              }
+MACHINE.control.push(new RUNTIME.CallFrame(_procReturn2166, MACHINE.proc));
+return ((MACHINE.proc).label)(MACHINE);
+}
+};
+
+var _beforePromptPopMultiple2173 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _beforePromptPopMultiple2173;
+    }
+    MACHINE.env.length = MACHINE.env.length - (MACHINE.argcount - 1);
+return (_beforePromptPop2174)(MACHINE);
+};
+
+_procReturn2162.multipleValueReturn = _procReturnMultiple2161;
+_procReturn2166.multipleValueReturn = _procReturnMultiple2165;
+_beforePromptPop2174.multipleValueReturn = _beforePromptPopMultiple2173;
+_beforePopPrompt2158.multipleValueReturn = _beforePopPromptMultiple2157;
+MACHINE.params.currentErrorHandler = fail;
+MACHINE.params.currentSuccessHandler = success;
+for (param in params) {
+    if (params.hasOwnProperty(param)) {
+        MACHINE.params[param] = params[param];
+    }
+}MACHINE.trampoline(_start2175); })(MACHINE, function() { (function(MACHINE, success, fail, params) {
+var param;
+var RUNTIME = plt.runtime;
+var _onReturnMultiple2182 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _onReturnMultiple2182;
+    }
+    MACHINE.env.length = MACHINE.env.length - (MACHINE.argcount - 1);
+return (_onReturn2183)(MACHINE);
+};
+
 var _start2187 = function(MACHINE){
     if(--MACHINE.callsBeforeTrampoline < 0) {
         throw _start2187;
     }
-    MACHINE.control.push(new RUNTIME.PromptFrame(_beforePopPrompt2170, RUNTIME.DEFAULT_CONTINUATION_PROMPT_TAG));
+    MACHINE.control.push(new RUNTIME.PromptFrame(_beforePopPrompt2178, RUNTIME.DEFAULT_CONTINUATION_PROMPT_TAG));
 MACHINE.env.push([false]);  MACHINE.env[MACHINE.env.length-1].names = [false];
-MACHINE.modules["collects/racket/private/modbeg.rkt"]=new RUNTIME.ModuleRecord("modbeg", _moduleEntry2184);
+MACHINE.modules["whalesong/js.rkt"]=new RUNTIME.ModuleRecord("js", _moduleEntry2180);
 MACHINE.val = MACHINE.val;
 MACHINE.env.length = MACHINE.env.length - 1;
 MACHINE.proc = MACHINE.control[MACHINE.control.length-1].label;
@@ -45190,18 +45124,84 @@ MACHINE.control.pop();
 return (MACHINE.proc)(MACHINE);
 };
 
-var _beforePromptPopMultiple2185 = function(MACHINE){
+var _onReturn2183 = function(MACHINE){
     if(--MACHINE.callsBeforeTrampoline < 0) {
-        throw _beforePromptPopMultiple2185;
+        throw _onReturn2183;
     }
-    MACHINE.env.length = MACHINE.env.length - (MACHINE.argcount - 1);
-return (_beforePromptPop2186)(MACHINE);
+    if ((MACHINE.modules["whalesong/js/main.rkt"] !== undefined) !== false)
+{
+if (MACHINE.modules["whalesong/js/main.rkt"].isInvoked !== false)
+{
+return (_onReturn2186)(MACHINE);
+} else {
+MACHINE.control.push(new RUNTIME.CallFrame(_onReturn2186, MACHINE.proc));
+return (MACHINE.modules["whalesong/js/main.rkt"].label)(MACHINE);
+}
+} else {
+MACHINE.params.currentOutputPort.writeDomNode(MACHINE, $('<span/>').text("DEBUG: the module whalesong/js/main.rkt hasn't been linked in!!!"));
+return (_onReturn2186)(MACHINE);
+}
 };
 
-_procReturn2174.multipleValueReturn = _procReturnMultiple2173;
-_procReturn2178.multipleValueReturn = _procReturnMultiple2177;
-_beforePromptPop2186.multipleValueReturn = _beforePromptPopMultiple2185;
-_beforePopPrompt2170.multipleValueReturn = _beforePopPromptMultiple2169;
+var _beforePopPromptMultiple2177 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _beforePopPromptMultiple2177;
+    }
+    MACHINE.env.length = MACHINE.env.length - MACHINE.argcount;
+return (_beforePopPrompt2178)(MACHINE);
+};
+
+var _beforePopPrompt2178 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _beforePopPrompt2178;
+    }
+    
+};
+
+var _onReturn2186 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _onReturn2186;
+    }
+    MACHINE.env.push([]);  MACHINE.env[MACHINE.env.length-1].names = [];
+MACHINE.modules["whalesong/js.rkt"].prefix = MACHINE.env[MACHINE.env.length - 1 - 0];
+MACHINE.env.length = MACHINE.env.length - 1;
+MACHINE.proc = MACHINE.control[MACHINE.control.length-1].label;
+MACHINE.control.pop();
+MACHINE.modules["whalesong/js.rkt"].finalizeModuleInvokation();
+return (MACHINE.proc)(MACHINE);
+};
+
+var _moduleEntry2180 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _moduleEntry2180;
+    }
+    MACHINE.modules["whalesong/js.rkt"].isInvoked = true;
+if ((MACHINE.modules["whalesong/lang/base.rkt"] !== undefined) !== false)
+{
+if (MACHINE.modules["whalesong/lang/base.rkt"].isInvoked !== false)
+{
+return (_onReturn2183)(MACHINE);
+} else {
+MACHINE.control.push(new RUNTIME.CallFrame(_onReturn2183, MACHINE.proc));
+return (MACHINE.modules["whalesong/lang/base.rkt"].label)(MACHINE);
+}
+} else {
+MACHINE.params.currentOutputPort.writeDomNode(MACHINE, $('<span/>').text("DEBUG: the module whalesong/lang/base.rkt hasn't been linked in!!!"));
+return (_onReturn2183)(MACHINE);
+}
+};
+
+var _onReturnMultiple2185 = function(MACHINE){
+    if(--MACHINE.callsBeforeTrampoline < 0) {
+        throw _onReturnMultiple2185;
+    }
+    MACHINE.env.length = MACHINE.env.length - (MACHINE.argcount - 1);
+return (_onReturn2186)(MACHINE);
+};
+
+_onReturn2183.multipleValueReturn = _onReturnMultiple2182;
+_onReturn2186.multipleValueReturn = _onReturnMultiple2185;
+_beforePopPrompt2178.multipleValueReturn = _beforePopPromptMultiple2177;
 MACHINE.params.currentErrorHandler = fail;
 MACHINE.params.currentSuccessHandler = success;
 for (param in params) {
