@@ -22,6 +22,9 @@
 (define (max x y)
   (if (> x y) x y))
 
+
+;;; Utilities
+
 (define (interval from to)
   ; from inclusive, to exclusive
   (if (>= from to)
@@ -33,6 +36,12 @@
       ""
       (let ([r (string-append-n str (- n 1))])
         (string-append str r))))
+
+(define (random-in-interval from to)
+  ; both inclusive
+  (+ from (random (+ (- to from) 1))))
+
+
 
 ;;;
 ;;; Addition Exercises
@@ -116,7 +125,8 @@
     (list @stringify{Use the formula: $$a^{-n} = \frac{1}{a^n}$$}
           @stringify{$$a^{@|n|} = \frac{1}{a^@(- n)}.$$}
           @stringify{$$@|a|^{@n} = \frac{1}{@|a|^{@(- n)}}.$$}
-          @stringify{$$@|a|^{@n} = \frac{1}{@|a|^{@(- n)}} = \frac{1}{@|a|@(string-append-n @stringify{\cdot @|a|} (sub1 (- n)))}. $$}
+          @stringify{$$@|a|^{@n} = \frac{1}{@|a|^{@(- n)}} = \frac{1}{@|a|@(string-append-n 
+                                                                            @stringify{\cdot @|a|} (sub1 (- n)))}. $$}
           @stringify{$$@|a|^{@n} = \frac{1}{@(expt a (- n))}.$$ Enter the result as $1/@(expt a (- n))$.}))
   
   (define (check-answer ans)
@@ -126,6 +136,48 @@
   (make-exercise "Powers with negative exponents" 
                  "Powers with natural exponents."
                  new-problem! problem-description hints check-answer))
+
+(define (squaring-binomial-exercise)
+  ; (ax+b)^2 = a^2 x^2 + 2ab x + b^2  
+  (define a 1)
+  (define b 2)
+  ; depends on a and b:
+  (define c2 (* a a))
+  (define c1 (* 2 a b))
+  (define c0 (* b b))
+  
+  (define (new-problem!)
+    (set! a (random-in-interval 2 6))
+    (when (= a 0) (new-problem!))
+    (set! b (random-in-interval 2 6))
+    (set! c2 (* a a))
+    (set! c1 (* 2 a b))
+    (set! c0 (* b b)))
+  
+  (define (problem-description)
+    @stringify{<div>Rewrite to the form $a\cdot x^2 + b\cdot x + c$.</div>
+               <div>$$( @|a|\cdot x + @|b|)^2 = ?$$</div>
+               })
+  
+  (define (hints)
+    (list @stringify{
+            First use the rule: $$(s+t)^2=s^2+2\cdot s\cdot t+t^2$$
+            Second use the rule $$(a\cdot s)^2=a^2\cdot s^2$$}
+          @stringify{($$@{a}\cdot x + @{b})^2 = (@{a}\cdot x)^2 + 2\cdot(@{a})\cdot @{b} + @{b}^2}
+          @stringify{ $$@{a}^2\cdot x^2 + 2\cdot(@{a})\cdot @{b} + @{b}^2$$}
+          @stringify{ $$@{c2}x^2 + @{c1}x + @{c3}$$}
+          ))
+  
+  (define (check-answer ans2 ans1 ans0)
+    (and (= ans2 c2) (= ans1 c1) (= ans1 c1)))
+  
+  (new-problem!)
+  (make-exercise "Square of binomial" 
+                 "Square a binomial."
+                 new-problem! problem-description hints check-answer))
+  
+  
+
 
 (define (combine-exercises title summary . exercises)
   ; combine a number of exercises into 1
@@ -147,7 +199,7 @@
   (combine-exercises "Powers" "Combines all power exercises" 
                      power1-exercise power2-exercise))
 
-(define current-exercise (power-all-kinds-exercise))
+(define current-exercise (squaring-binomial-exercise))
 
 ;;;
 ;;; Problem related
