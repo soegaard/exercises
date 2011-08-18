@@ -69,9 +69,11 @@
          module
          define
 	 define-values
+         let-syntax
 	 let-values
 	 let*-values
 	 define-struct
+         struct
          if
 	 cond
 	 else
@@ -96,6 +98,7 @@
 	 unless
 	 require
 	 for-syntax
+         for-template
 	 define-for-syntax
 	 begin-for-syntax
 	 prefix-in
@@ -255,6 +258,7 @@ raise-mismatch-error
   procedure?
   procedure-arity
   procedure-arity-includes?
+  procedure-rename
   pair?
   list?
   ;;  (undefined? -undefined?)
@@ -269,7 +273,7 @@ vector?
 ;;  eof-object?
 ;;  bytes?
 ;;  byte?
-;;  number?
+number?
 ;;  complex?
 ;;  real?
 ;;  rational?
@@ -349,10 +353,10 @@ memq
 ;;  string-ci>?
 ;;  string-ci<=?
 ;;  string-ci>=?
-;;  substring
+  substring
   string-append
 ;;  string->list
-;;  list->string
+  list->string
 ;;  string-copy
 string->symbol
 symbol->string
@@ -432,3 +436,7 @@ symbol->string
 
 (define (set-cdr! x v)
   (error 'set-car! "Not available outside JavaScript context."))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -26,6 +26,7 @@
     var isVector = baselib.vectors.isVector;
     var isString = baselib.strings.isString;
     var isSymbol = baselib.symbols.isSymbol;
+    var isPath = baselib.paths.isPath;
 
     var equals = baselib.equality.equals;
 
@@ -42,7 +43,10 @@
     var makeBignum = baselib.numbers.makeBignum;
     var makeComplex = baselib.numbers.makeComplex;
 
+
     var makeSymbol = baselib.symbols.makeSymbol;
+    var makePath = baselib.paths.makePath;
+    var makeBytes = baselib.bytes.makeBytes;
 
     var makeBox = baselib.boxes.makeBox;
     var isBox = baselib.boxes.isBox;
@@ -50,6 +54,7 @@
     var makeVector = baselib.vectors.makeVector;
     var makeList = baselib.lists.makeList;
     var makePair = baselib.lists.makePair;
+    var makeChar = baselib.chars.makeChar;
 
     var makeStructureType = baselib.structs.makeStructureType;
 
@@ -667,6 +672,7 @@
     // numbers
     exports['makeList'] = makeList;
     exports['makePair'] = makePair;
+    exports['makeChar'] = makeChar;
     exports['makeVector'] = makeVector;
     exports['makeBox'] = makeBox;
     exports['makeFloat'] = makeFloat;
@@ -674,6 +680,8 @@
     exports['makeBignum'] = makeBignum;
     exports['makeComplex'] = makeComplex;
     exports['makeSymbol'] = makeSymbol;
+    exports['makePath'] = makePath;
+    exports['makeBytes'] = makeBytes;
 
 
     // Type predicates
@@ -685,6 +693,7 @@
     exports['isBox'] = isBox;
     exports['isString'] = isString;
     exports['isSymbol'] = isSymbol;
+    exports['isPath'] = isPath;
     exports['isNumber'] = isNumber;
     exports['isNatural'] = isNatural;
     exports['isReal'] = isReal;

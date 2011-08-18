@@ -69,6 +69,8 @@
     var checkRational = baselib.check.checkRational;
     var checkPair = baselib.check.checkPair;
     var checkList = baselib.check.checkList;
+    var checkListofChars = baselib.check.makeCheckListofArgumentType(baselib.chars.isChar,
+                                                                     'character');
     var checkVector = baselib.check.checkVector;
     var checkBox = baselib.check.checkBox;
     var checkMutableBox = baselib.check.checkMutableBox;
@@ -619,6 +621,34 @@
             return baselib.strings.makeMutableString(arr);
         });
 
+    installPrimitiveProcedure(
+        'substring',
+        makeList(2, 3),
+        function(MACHINE) {
+            var str = String(checkString(MACHINE, 'substring', 0));
+            var start = baselib.numbers.toFixnum(checkNatural(MACHINE, 'substring', 1));
+            var end = str.length;
+            if (MACHINE.argcount === 3) {
+                end = baselib.numbers.toFixnum(checkNatural(MACHINE, 'substring', 2));
+            }
+            return str.substring(start, end);
+        });
+
+
+    installPrimitiveProcedure(
+        'list->string',
+        1,
+        function (MACHINE) {
+            var firstArg = checkListofChars(MACHINE, 'list->string', 0);
+            var result = [];
+            while (firstArg !== NULL) {
+                result.push(firstArg.first.val);
+                firstArg = firstArg.rest;
+            }
+            return result.join('');
+        });
+
+
 
     installPrimitiveProcedure(
         'string-set!',
@@ -882,6 +912,17 @@
 
 
     installPrimitiveProcedure(
+        'procedure-rename',
+        2,
+        function (MACHINE) {
+            var proc = checkProcedure(MACHINE, 'procedure-rename', 0);
+            var name = checkSymbol(MACHINE, 'procedure-rename', 1);
+            return baselib.functions.renameProcedure(proc, name);
+        });
+
+
+
+    installPrimitiveProcedure(
         'member',
         2,
         function (MACHINE) {
@@ -923,6 +964,12 @@
         });
 
 
+    installPrimitiveProcedure(
+	'number?',
+	1,
+	function(MACHINE) {
+	    return isNumber(MACHINE.env[MACHINE.env.length - 1]);
+	});
 
 
     installPrimitiveProcedure(

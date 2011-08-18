@@ -3,7 +3,8 @@
 (require "../compiler/il-structs.rkt"
          "../compiler/expression-structs.rkt"
          "../compiler/lexical-structs.rkt"
-         racket/list)
+         racket/list
+         racket/string)
 
 (provide assemble-oparg
          assemble-target
@@ -122,8 +123,20 @@
                (format "RUNTIME.NULL")]
               [(number? val)
                (assemble-numeric-constant val)]
+              [(string? val)
+               (format "~s" val)]
+              [(char? val)
+               (format "RUNTIME.makeChar(~s)" (string val))]
+              [(bytes? val)
+               (format "RUNTIME.makeBytes(~a)"
+                       (string-join (for/list ([a-byte val])
+                                      (number->string a-byte))
+                                    ","))]
+              [(path? val)
+               (format "RUNTIME.makePath(~s)"
+                       (path->string val))]
               [else
-               (format "~s" val)])))
+               (error 'assemble-const "Unsupported datum ~s" val)])))
 
 (: assemble-listof-assembled-values ((Listof String) -> String))
 (define (assemble-listof-assembled-values vals)

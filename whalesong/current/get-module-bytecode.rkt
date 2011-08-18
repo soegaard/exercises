@@ -4,11 +4,7 @@
          syntax/modcode
          "language-namespace.rkt"
          "logger.rkt"
-         syntax/kerncase
-         (for-template (planet dyoo/whalesong/lang/kernel)
-                       "resource.rkt")
-         
-         "resource.rkt")
+         "expand-out-images.rkt")
 
 (provide get-module-bytecode)
 
@@ -23,38 +19,39 @@
 
 (define (get-module-bytecode x)
   (log-debug "grabbing module bytecode for ~s" x)
-  (let ([compiled-code
-         (cond
-           ;; Assumed to be a path string
-           [(string? x)
-            (get-compiled-code-from-path (normalize-path (build-path x)))]
-           
-           [(path? x)
-            (get-compiled-code-from-path x)]
-           
-           ;; Input port is assumed to contain the text of a module.
-           [(input-port? x)
-            (get-compiled-code-from-port x)]
-           
-           [else
-            (error 'get-module-bytecode)])])
-    (let ([op (open-output-bytes)])
-      (write compiled-code op)
-      (get-output-bytes op))))
 
+  (define-values (compiled-code alternative-f)
+    (cond
+      ;; Assumed to be a path string
+      [(string? x)
+       (log-debug "assuming path string")
+       (values (get-compiled-code-from-path (normalize-path (build-path x)))
+               (lambda ()
+                 (call-with-input-file* (normalize-path (build-path x))
+                   get-compiled-code-from-port)
+                 ))]
+      
+      [(path? x)
+       (values (get-compiled-code-from-path x)
+               (lambda ()
+                 (call-with-input-file* x get-compiled-code-from-port)))]
+      
+      ;; Input port is assumed to contain the text of a module.
+      [(input-port? x)
+       (values (get-compiled-code-from-port x)
+               (lambda ()
+                 (get-compiled-code-from-port x)))]
+      
+      [else
+       (error 'get-module-bytecode)]))
 
-;; Tries to use get-module-code to grab at module bytecode.  Sometimes
-;; this fails because it appears get-module-code tries to write to
-;; compiled/.
-(define (get-compiled-code-from-path p)
-  (with-handlers ([void (lambda (exn)
-                          ;; Failsafe: try to do it from scratch
-                          (call-with-input-file* p
-                            (lambda (ip)
-                              (get-compiled-code-from-port ip))))])
-    (get-module-code p)))
-
-
+  (with-handlers ([exn? (lambda (exn)
+                          (define op (open-output-bytes))
+                          (write (alternative-f) op)
+                          (get-output-bytes op))])
+    (define op (open-output-bytes))
+    (write compiled-code op)
+    (get-output-bytes op)))
 
 
 
@@ -66,150 +63,26 @@
   #;(make-base-namespace))
 
 
+
+;; Tries to use get-module-code to grab at module bytecode.  Sometimes
+;; this fails because it appears get-module-code tries to write to
+;; compiled/.
+(define (get-compiled-code-from-path p)
+  (log-debug "get-compiled-code-from-path")
+  (with-handlers ([exn? (lambda (exn)
+                          ;; Failsafe: try to do it from scratch
+                          (log-debug "parsing from scratch")
+                          (call-with-input-file* p
+                            (lambda (ip)
+                              (get-compiled-code-from-port ip))))])
+    (get-module-code p)))
+
+
+;; get-compiled-code-from-port: input-port -> compiled-code
+;; Compiles the source from scratch.
 (define (get-compiled-code-from-port ip)
   (parameterize ([read-accept-reader #t]
                  [current-namespace base-namespace])
-    (define expanded (expand (read-syntax (object-name ip) ip)))
-    ;; We need to translate image snips in the expanded form so we can
-    ;; fruitfully use compiler/zo-parse.    
-    (compile (kernel-syntax-case expanded #f
-               [(module id name-id (#%plain-module-begin module-level-form ...))
-                
-                #`(module id name-id (#%plain-module-begin 
-                                      (require (planet dyoo/whalesong/resource))
-                                      #,@(map convert-images-to-resources
-                                              (syntax->list #'(module-level-form ...)))))]))))
-
-
-(define code-insp (current-code-inspector))
-
-
-(define (on-expr expr)
-  (kernel-syntax-case (syntax-disarm expr code-insp) #f
-    
-    [(#%plain-lambda formals subexpr ...)
-     (quasisyntax/loc expr
-       (#%plain-lambda forms #,@(map on-expr (syntax->list #'(subexpr ...)))))]
-    
-    [(case-lambda case-lambda-clauses ...)
-     (quasisyntax/loc expr
-       (case-lambda #,@(map (lambda (a-clause)
-                              (syntax-case (syntax-disarm a-clause code-insp) ()
-                                [(formals subexpr ...)
-                                 (quasisyntax/loc a-clause
-                                   (formals #,@(map on-expr #'(subexpr ...))))]))
-                            (syntax->list #'(case-lambda-clauses ...)))))]
-    
-    [(if test true-part false-part)
-     (quasisyntax/loc expr
-       (if #,(on-expr #'test)
-           #,(on-expr #'true-part)
-           #,(on-expr #'false-part)))]
-    
-    [(begin subexpr ...)
-     (quasisyntax/loc expr
-       (begin #,@(map on-expr (syntax->list #'(subexpr ...)))))]
-    
-    [(begin0 subexpr ...)
-     (quasisyntax/loc expr
-       (begin0 #,@(map on-expr (syntax->list #'(subexpr ...)))))]
-    
-    [(let-values bindingss body ...)
-     (quasisyntax/loc expr
-       (let-values #,(syntax-case (syntax-disarm #'bindingss code-insp) ()
-                       [(binding ...)
-                        (quasisyntax/loc #'bindings
-                          (#,@(map (lambda (binding) 
-                                     (syntax-case (syntax-disarm binding code-insp) ()
-                                       [(ids expr)
-                                        (quasisyntax/loc binding
-                                          (ids #,(on-expr #'expr)))]))
-                                   (syntax->list #'(binding ...)))))])
-         #,@(map on-expr (syntax->list #'(body ...)))))]
-    
-    [(letrec-values bindingss body ...)
-     (quasisyntax/loc expr
-       (letrec-values #,(syntax-case (syntax-disarm #'bindingss code-insp) ()
-                          [(binding ...)
-                           (quasisyntax/loc #'bindings
-                             (#,@(map (lambda (binding) 
-                                        (syntax-case (syntax-disarm binding code-insp) ()
-                                          [(ids expr)
-                                           (quasisyntax/loc binding
-                                             (ids #,(on-expr #'expr)))]))
-                                      (syntax->list #'(binding ...)))))])
-         #,@(map on-expr (syntax->list #'(body ...)))))]
-    
-    [(set! id subexpr)
-     (quasisyntax/loc expr
-       (set! id #,(on-expr #'subexpr)))]
-    
-    [(quote datum)
-     (on-datum #'datum (lambda (v)
-                         (quasisyntax/loc expr
-                           (quote #,v))))]
-
-    [(quote-syntax datum)
-     (on-datum #'datum (lambda (v)
-                         (quasisyntax/loc expr
-                           (quote-syntax #,v))))]
-
-    [(with-continuation-mark key value body)
-     (quasisyntax/loc expr
-       (with-continuation-mark #,(on-expr #'key) #,(on-expr #'value) #,(on-expr #'body)))]
-    
-    [(#%plain-app subexpr ...)
-     (quasisyntax/loc expr
-       (#%plain-app #,@(map on-expr (syntax->list #'(subexpr ...)))))]
-
-    [(#%top . id)
-     expr]
-    
-    [(#%variable-reference (#%top . id))
-     expr]
-    [(#%variable-reference id)
-     expr]
-    [(#%variable-reference)
-     expr]
-    [else 
-     expr]))
-
-
-(define (on-datum datum-stx k)
-  (define-values (image? convert) (parameterize ([current-namespace base-namespace])
-                                    (values
-                                     (dynamic-require '2htdp/image 'image?)
-                                     (dynamic-require 'file/convertible 'convert))))
-  (cond
-    [(image? (syntax-e datum-stx))
-     (with-syntax ([image-bytes (convert (syntax-e datum-stx) 'png-bytes)])
-       (quasisyntax/loc datum-stx
-         (make-bytes-resource #f #f image-bytes)))]
-
-    [else
-     (k datum-stx)]))
-
-
-
-(define (convert-images-to-resources stx)
-  (kernel-syntax-case (syntax-disarm stx code-insp) #f
-    [(#%provide raw-provide-spec ...)
-     stx]
-    
-    [(#%require raw-require-spec ...)
-     stx]
-    
-    [(define-values ids expr)
-     (quasisyntax/loc stx 
-       (define-values ids #,(on-expr #'expr)))]
-    
-    [(define-syntaxes ids expr)
-     (quasisyntax/loc stx 
-       (define-syntaxes ids #,(on-expr #'expr)))]
-    
-    [(define-values-for-syntax ids expr)
-     (quasisyntax/loc stx 
-       (define-values-for-syntax ids #,(on-expr #'expr)))]
-    
-    [else
-     (on-expr stx)]))
+    (define stx (read-syntax (object-name ip) ip))
+    (define expanded-stx (expand-out-images stx))
+    (compile expanded-stx)))
