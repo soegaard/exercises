@@ -1,47 +1,17 @@
 #lang at-exp planet dyoo/whalesong
 (require (planet dyoo/whalesong/js))
+(require "lang/primitives.rkt"
+         "lang/do.rkt"
+         "utilities/random.rkt"
+         "utilities/string.rkt")
 
 ;;; STATUS:
-;    - Menu med alle øvelserne
+;  Missing
+;    - Menu with all exercises
 ;    - Header og footer ?
-;    - Forklaring: Link til blog post?
 ;    - Credits
-
-;;; Whalesong Wishlist
-; - get value of JS variable
-; - call JS function directly
-; - primitives: js-object? number? min max build-list
-
-;;; Missing Whalesong primitives (for the time being)
-
-; access to JavaScript object fields. E.g. event.keyCode.
-
-(define (min x y)
-  (if (< x y) x y))
-
-(define (max x y)
-  (if (> x y) x y))
-
-
-;;; Utilities
-
-(define (interval from to)
-  ; from inclusive, to exclusive
-  (if (>= from to)
-      '()
-      (cons from (interval (+ from 1) to))))
-
-(define (string-append-n str n)
-  (if (<= n 0)
-      ""
-      (let ([r (string-append-n str (- n 1))])
-        (string-append str r))))
-
-(define (random-in-interval from to)
-  ; both inclusive
-  (+ from (random (+ (- to from) 1))))
-
-
+; Bugs:
+;    - MathJax doesn't run on the very first exercise
 
 ;;;
 ;;; Addition Exercises
@@ -175,9 +145,6 @@
   (make-exercise "Square of binomial" 
                  "Square a binomial."
                  new-problem! problem-description hints check-answer))
-  
-  
-
 
 (define (combine-exercises title summary . exercises)
   ; combine a number of exercises into 1
@@ -199,7 +166,8 @@
   (combine-exercises "Powers" "Combines all power exercises" 
                      power1-exercise power2-exercise))
 
-(define current-exercise (squaring-binomial-exercise))
+(define current-exercise (power-all-kinds-exercise)
+  #;(squaring-binomial-exercise))
 
 ;;;
 ;;; Problem related
@@ -292,12 +260,12 @@
 
 ;;; Answer area
 (define (clear-answer-input)
-  (call-method ($ "#answer_input") "replaceWith" 
-               @stringify{<input id='answer_input' type='text' value='' 
+  (call-method ($ "#answer_input_1") "replaceWith" 
+               @stringify{<input id='answer_input_1' type='text' value='' 
                                  onkeyup='@(call-plt-function1 'on-keyup/answer-input "event.keyCode")' />}))
 
 (define (set-focus-to-answer-input)
-  (call-method ($ "#answer_input") "focus"))
+  (call-method ($ "#answer_input_1") "focus"))
 
 (define (change-answer-button-text str)
   (call-method ($ "#answer_button") "val" str))
@@ -319,7 +287,7 @@
 ;;; VIEW GETTERS
 
 (define (get-user-answer)
-  (let ([v (call-method ($ "#answer_input") "val")])
+  (let ([v (call-method ($ "#answer_input_1") "val")])
     (cond [(string? v) (string->number v)]
           [else #f])))
 
@@ -443,7 +411,7 @@
          #scratchpad_toggle{ text-decoration: underline; color: dodgerblue;}
          #answer_area{border: 1px; border-style: solid; border-color: black; background-color: lightblue; padding: 10px;}
          #answer_area_title{position:relative; font-size:large; margin-bottom: 10px; }
-         #answer_input{margin-bottom: 10px}
+         #answer_input_1{margin-bottom: 10px}
          #help_area{border: 1px; border-style: solid; border-color: black; background-color: lightblue; padding: 10px; margin-top: 15px;}
          #help_area_title{position:relative; font-size:large; margin-bottom: 10px;}
      </style>
@@ -469,7 +437,7 @@
              <a id='scratchpad_toggle' onclick='@(call-plt-thunk 'on-toggle-scratchpad)'>Show ScratchPad</a>
              <div id='answer_area'>
                  <div id='answer_area_title'>Answer</div>
-                 <div><input id='answer_input' type='text' value='7' /></div>
+                 <div><input id='answer_input_1' type='text' value='7' /></div>
                  <input id='answer_button' type='button' onclick='@(call-plt-thunk 'on-answer-button)' value='Check Answer'/>
                  <div><img id='sad' style='display: none;' src='../pics/face-sad.gif'/></div>
                  <div><img id='happy' style='display: none;' src='../pics/face-happy.gif'/></div>
