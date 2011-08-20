@@ -2,6 +2,7 @@
 (require "simulator-structs.rkt"
          "simulator-helpers.rkt"
          "../compiler/il-structs.rkt"
+         "../compiler/arity-structs.rkt"
          racket/math
          racket/list
          (for-syntax racket/base))
@@ -236,7 +237,7 @@
                                                      symbol->string
                                                      string-append
                                                      string-length
-                                                     
+
                                                      (my-cons cons)
                                                      (my-list list)
                                                      (my-car car)
@@ -244,6 +245,7 @@
 						     (my-cadr cadr)
 						     (my-caddr caddr)
                                                      (my-pair? pair?)
+                                                     null?
                                                      (my-set-car! set-car!)
                                                      (my-set-cdr! set-cdr!)
                                                      (my-member member)

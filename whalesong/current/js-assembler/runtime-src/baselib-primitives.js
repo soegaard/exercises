@@ -542,6 +542,25 @@
 
 
     installPrimitiveProcedure(
+        'make-vector',
+        makeList(1, 2),
+        function (MACHINE) {
+            var value = 0;
+            var length = baselib.numbers.toFixnum(
+                checkNatural(MACHINE, 'make-vector', 0));
+            if (MACHINE.argcount === 2) {
+                value = MACHINE.env[MACHINE.env.length - 2];
+            }
+            var arr = [];
+	    var i;
+            for(i = 0; i < length; i++) {
+                arr[i] = value;
+            }
+            return makeVector.apply(null, arr);
+        });
+    
+
+    installPrimitiveProcedure(
         'vector->list',
         1,
         function (MACHINE) {
@@ -649,6 +668,33 @@
         });
 
 
+    installPrimitiveProcedure(
+        'string',
+        baselib.arity.makeArityAtLeast(0),
+        function (MACHINE) {
+            var i;
+            var chars = [];
+            for (i = 0; i < MACHINE.argcount; i++) {
+                chars.push(checkChar(MACHINE, 'string', i).val);
+            };
+            return chars.join('');
+        });
+
+
+    installPrimitiveProcedure(
+        'string->list',
+        1,
+        function (MACHINE) {
+            var str = checkString(MACHINE, 'string->list', 0).toString();
+            var i;
+            var result = NULL;
+            for (i = str.length - 1; i >= 0; i--) {
+                result = makePair(baselib.chars.makeChar(str[i]), result);
+            }
+            return result;
+        });
+
+
 
     installPrimitiveProcedure(
         'string-set!',
@@ -663,24 +709,6 @@
 
 
 
-    installPrimitiveProcedure(
-        'make-vector',
-        makeList(1, 2),
-        function (MACHINE) {
-            var value = 0;
-            var length = baselib.numbers.toFixnum(
-                checkNatural(MACHINE, 'make-vector', 0));
-            if (MACHINE.argcount === 2) {
-                value = MACHINE.env[MACHINE.env.length - 2];
-            }
-            var arr = [];
-	    var i;
-            for(i = 0; i < length; i++) {
-                arr[i] = value;
-            }
-            return makeVector.apply(null, arr);
-        });
-    
 
 
     installPrimitiveProcedure(
@@ -737,6 +765,19 @@
 
 
     installPrimitiveProcedure(
+        'string-ref',
+        2,
+        function (MACHINE) {
+            var firstArg = checkString(MACHINE, 'string-ref', 0).toString();
+            var index = baselib.numbers.toFixnum(
+                checkNaturalInRange(MACHINE, 'string-ref', 1,
+                                    0, firstArg.length));
+            return baselib.chars.makeChar(firstArg[index]);
+        });
+
+
+
+    installPrimitiveProcedure(
         'string?',
         1,
         function (MACHINE) {
@@ -769,6 +810,36 @@
         });
 
 
+    installPrimitiveProcedure(
+        'boolean?',
+        1,
+        function(MACHINE) {
+            var v = MACHINE.env[MACHINE.env.length - 1];
+            return (v === true || v === false);
+        });
+
+
+    installPrimitiveProcedure(
+        'char?',
+        1,
+        function(MACHINE) {
+            return baselib.chars.isChar(MACHINE.env[MACHINE.env.length -1 ]);
+        });
+
+
+    installPrimitiveProcedure(
+        'char=?',
+        baselib.arity.makeArityAtLeast(2),
+        function(MACHINE) {
+            var s = checkChar(MACHINE, 'char=?', 0).val;
+	    var i;
+            for (i = 1; i < MACHINE.argcount; i++) {
+                if (checkChar(MACHINE, 'char=?', i).val !== s) {
+                    return false;
+                }
+            }
+            return true;
+        });
 
 
     

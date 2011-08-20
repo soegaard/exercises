@@ -1,42 +1,31 @@
 #lang at-exp planet dyoo/whalesong
 (require (for-syntax racket))
+(require "../lang/do.rkt"
+         "../lang/char.rkt")
 
 (provide (all-defined-out))
 
-;;; String Utilities
+(define (string-reverse s)
+  (list->string (reverse (string->list s))))
 
-#;(define (string->list s)
-    (let ([len (string-length s)])
-      (let loop ([i 0] [l '()])
-        (if (= i len) 
-            (reverse l)
-            (loop (+ i 1) (cons (string-ref s i) l))))))
+(define (string-trim-left s)
+  (if (string=? s "")
+      s
+      (do ([i 0 (+ i 1)])
+        [(not (char-whitespace? (string-ref s i)))
+         (substring s i (string-length s))])))
 
-#;(define (string->list s)
-  (let ([len (string-length s)])
-    (do ([i 0 (+ i 1)]
-         [l '() (cons (string-ref s i) l)])
-      [(= i len) (reverse l)])))
+(define (string-trim-right s)
+  (if (string=? s "")
+      s
+      (do ([i (string-length s) (- i 1)])
+        [(not (char-whitespace? (string-ref s (- i 1))))
+         (substring s 0 i)])))
 
+(define (string-trim-both s)
+  (string-trim-right
+   (string-trim-left s)))
 
-#;(define (string-reverse s)
-    (list->string (reverse (string->list s))))
-
-#;(define (string-trim-left s)
-    (for/first ([c (in-string s)]
-                [i (in-naturals)]
-                #:when (not (char-whitespace? c)))
-      (substring s i (string-length s))))
-
-#;(define (string-trim-right s)
-  (for/first ([c (in-string (string-reverse s))]
-              [i (in-naturals)]
-              #:when (not (char-whitespace? c)))
-             (substring s 0 (- (string-length s) i))))
-
-#;(define (string-trim-both s)
-    (string-trim-left
-     (string-trim-right s)))
 
 (define (string-append-n str n)
   (if (<= n 0)

@@ -138,10 +138,15 @@
          car
          cdr
          list
+         list?
+         pair?
          null?
          not
          eq?
-         values)
+         values
+
+         apply
+         call-with-values)
 
 
 (define (-identity x) x)
@@ -183,8 +188,6 @@
 ;;  arity-at-least?
 ;;  arity-at-least-value
 
- apply
- call-with-values
 
 ;;  compose
 ;;  current-inexact-milliseconds
@@ -259,15 +262,13 @@ raise-mismatch-error
   procedure-arity
   procedure-arity-includes?
   procedure-rename
-  pair?
-  list?
   ;;  (undefined? -undefined?)
 ;;  immutable?
 ;;  void?
 symbol?
 string?
-;;  char?
-;;  boolean?
+char?
+boolean?
 vector?
 ;;  struct?
 ;;  eof-object?
@@ -340,9 +341,9 @@ memq
 ;;  hash-map
 ;;  hash-for-each
   make-string
-;;  string
+  string
   string-length
-;;  string-ref
+  string-ref
   string=?
 ;;  string-ci=?
 ;;  string<?
@@ -355,7 +356,7 @@ memq
 ;;  string-ci>=?
   substring
   string-append
-;;  string->list
+  string->list
   list->string
 ;;  string-copy
 string->symbol
@@ -390,7 +391,7 @@ symbol->string
   vector->list
   list->vector
 ;;  build-vector
-;;  char=?
+char=?
 ;;  char<?
 ;;  char>?
 ;;  char<=?

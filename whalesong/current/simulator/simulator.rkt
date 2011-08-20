@@ -9,6 +9,7 @@
          "../compiler/expression-structs.rkt"
          "../compiler/il-structs.rkt"
          "../compiler/lexical-structs.rkt"
+         "../compiler/arity-structs.rkt"
          "../compiler/bootstrapped-primitives.rkt"
          "../compiler/kernel-primitives.rkt"
          racket/list
@@ -790,6 +791,8 @@
            (list->mutable-pair-list rand-vals)]
           [(null?)
            (null? (first rand-vals))]
+          [(pair?)
+           (MutablePair? (first rand-vals))]
           [(not)
            (not (first rand-vals))]
           [(eq?)

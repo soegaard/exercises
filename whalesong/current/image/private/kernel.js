@@ -275,6 +275,10 @@ var FileImage = function(src, rawImage) {
     var self = this;
     this.src = src;
     this.isLoaded = false;
+
+    // animationHack: see installHackToSupportAnimatedGifs() for details.
+    this.animationHackImg = undefined;
+
     if (rawImage && rawImage.complete) { 
 	this.img = rawImage;
 	this.isLoaded = true;
@@ -321,7 +325,19 @@ FileImage.installBrokenImage = function(path) {
 
 
 FileImage.prototype.render = function(ctx, x, y) {
-    ctx.drawImage(this.img, x, y);
+    this.installHackToSupportAnimatedGifs();
+    ctx.drawImage(this.animationHackImg, x, y);
+};
+
+
+// The following is a hack that we use to allow animated gifs to show
+// as animating on the canvas.
+FileImage.prototype.installHackToSupportAnimatedGifs = function() {
+    if (this.animationHackImg) { return; }
+    this.animationHackImg = this.img.cloneNode(true);
+    document.body.appendChild(this.animationHackImg);
+    this.animationHackImg.width = 0;
+    this.animationHackImg.height = 0;
 };
 
 
@@ -418,69 +434,60 @@ VideoImage.prototype.equals = function(other, aUnionFind) {
 var OverlayImage = function(img1, img2, placeX, placeY) {
     // calculate centers using width/height, so we are scene/image agnostic
     var c1x = img1.getWidth()/2;
-    var c1y = img1.getHeight()/2; 
+    var c1y = img1.getHeight()/2;
     var c2x = img2.getWidth()/2;
     var c2y = img2.getHeight()/2;
-    var X, Y;
 
+    // calculate absolute offset of 2nd image's *CENTER*
+    // convert relative X,Y to center offsets, 
+    // if placeX and placeY are UL corner offsets, convert to center offsets
+    if	(placeX == "left"  )	var xOffset = img2.getWidth()-(c1x+c2x);
+    else if (placeX == "right" )	var xOffset = img1.getWidth()-(c1x+c2x);
+    else if (placeX == "beside")	var xOffset = c1x+c2x;
+    else if (placeX == "middle")	var xOffset = 0;
+    else if (placeX == "center")	var xOffset = 0;
+    else				var xOffset = placeX - (c1x-c2x);
 
-    // keep absolute X and Y values
-    // convert relative X,Y to absolute amounts
-    // we also handle "beside" and "above"
-    if (placeX == "right")
-	X = (c1x>c2x)? img2.getWidth()-(c1x+c2x) : img1.getWidth()-(c1x+c2x);
-    else if (placeX == "left") 
-	X = (c1x>c2x)? img1.getWidth()-(c1x+c2x) : img2.getWidth()-(c1x+c2x);
-    else if (placeX == "beside")
-	X = c1x+c2x;
-    else if (placeX == "middle" || 
-	     placeX == "center")
-	X = 0;
-    else
-	X = placeX;
+    if	(placeY == "bottom")	var yOffset = img1.getHeight()-(c1y+c2y);
+    else if (placeY == "top")	var yOffset = img2.getHeight()-(c1y+c2y); 
+    else if (placeY == "above" )	var yOffset = c1y+c2y;
+    else if (placeY == "middle")	var yOffset = 0;
+    else if	(placeY == "center")	var yOffset = 0;
+    else if (placeY == "baseline")	var yOffset= img1.getBaseline()-img2.getBaseline();
+    else				var yOffset = placeY - (c1y-c2y);
+
+    // Correct offsets when dealing with Scenes instead of images,
+    // by adding the center values
+    if(isScene(img1)){xOffset =+c1x; yOffset =+c1y;}
+    if(isScene(img2)){xOffset =+c2x; yOffset =+c2y;}
     
-    if (placeY == "bottom")
-	Y = (c1y>c2y)? img2.getHeight()-(c1y+c2y) : img1.getHeight()-(c1y+c2y);
-    else if (placeY == "top")
-	Y = (c1y>c2y)? img1.getHeight()-(c1y+c2y) : img2.getHeight()-(c1y+c2y);
-    else if (placeY == "above")
-	Y = c1y+c2y;
-    else if (placeY == "baseline")
-	Y = img1.getBaseline()-img2.getBaseline();
-    else if (placeY == "middle" || placeY == "center")
-	Y = 0;
-    else
-	Y = placeY;
-    
+    // The *center* of the 2nd image, once overlaid, changes by the original difference in centers, 
+    // plus the size of the offsets. Calculate this delta for X and Y.
+    var deltaX	= c1x - c2x + xOffset; 
+    var deltaY	= c1y - c2y + yOffset;
 
-    // correct offsets when dealing with Scenes instead of images
-    if(isScene(img1)){
-	X = X + c1x; Y = Y + c1x;
-    }
-    if(isScene(img2)){
-	X = X - c2x; Y = Y - c2x;
-    }
-    
-    var deltaX	= img1.pinholeX - img2.pinholeX + X;
-    var deltaY	= img1.pinholeY - img2.pinholeY + Y;
-
+    // Each edge of the new, combined image may be grown or shrunk, depending on deltaX or deltaY
     var left	= Math.min(0, deltaX);
     var top		= Math.min(0, deltaY);
-    var right	= Math.max(deltaX + img2.getWidth(), img1.getWidth());
-    var bottom	= Math.max(deltaY + img2.getHeight(), img1.getHeight());	
+    var right	= Math.max(deltaX + img2.getWidth(),  img1.getWidth());
+    var bottom	= Math.max(deltaY + img2.getHeight(), img1.getHeight());
+    
+    // Calculate the new width, height and center based on edge lengths
+    this.width = right - left;
+    this.height = bottom - top;
     BaseImage.call(this, 
 		   Math.floor((right-left) / 2),
 		   Math.floor((bottom-top) / 2));
+
+    // store the overlaid images, and the offsets for each
     this.img1 = img1;
     this.img2 = img2;
-    this.width = right - left;
-    this.height = bottom - top;
-
     this.img1Dx = -left;
     this.img1Dy = -top;
     this.img2Dx = deltaX - left;	
     this.img2Dy = deltaY - top;
 };
+
 
 OverlayImage.prototype = heir(BaseImage.prototype);
 
@@ -513,7 +520,7 @@ OverlayImage.prototype.equals = function(other, aUnionFind) {
 // based on http://stackoverflow.com/questions/3276467/adjusting-div-width-and-height-after-rotated
 var RotateImage = function(angle, img) {
     var sin   = Math.sin(angle * Math.PI / 180),
-    cos   = Math.cos(angle * Math.PI / 180);
+    cos = Math.cos(angle * Math.PI / 180);
     
     // (w,0) rotation
     var x1 = Math.floor(cos * img.getWidth()),
@@ -557,14 +564,13 @@ RotateImage.prototype.render = function(ctx, x, y) {
     var sin	= Math.sin(this.angle * Math.PI / 180),
     cos	= Math.cos(this.angle * Math.PI / 180),
     r	= Math.sqrt(x*x + y*y);
-    x = Math.ceil(cos * r);
-    y = -Math.floor(sin * r);
     ctx.save();
-    ctx.translate(this.translateX, this.translateY);
+    ctx.translate(x + this.translateX, y + this.translateY);
     ctx.rotate(this.angle * Math.PI / 180);
-    this.img.render(ctx, x, y);
+    this.img.render(ctx, 0, 0);
     ctx.restore();
 };
+
 
 RotateImage.prototype.equals = function(other, aUnionFind) {
     return ( other instanceof RotateImage &&

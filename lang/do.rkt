@@ -1,6 +1,8 @@
 #lang at-exp planet dyoo/whalesong
 (require (for-syntax racket))
 
+(provide do)
+
 (define-syntax do
   (lambda (orig-x)
     (syntax-case orig-x ()

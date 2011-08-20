@@ -31,11 +31,11 @@
   (define (new-problem!)
     (set! x (random 10))
     (set! y (random 10)))
-
+  
   (define (problem-description)
     @stringify{<div>Calculate the sum.</div>
                <div> $$@x + @y = \ ?$$ </div>})
-
+  
   (define (hints)
     (list @stringify{The sum of @x and @y is the same as the sum of @(sub1 x) and @(add1 y).}
           @stringify{The sum @x + @y is equal to @(+ x y).}))
@@ -57,11 +57,11 @@
     (set! n (random 5)) ; [0,4]
     (when (= a n 0)
       (new-problem!)))
-
+  
   (define (problem-description)
     @stringify{<div>Calculate the power.</div>
                <div> $$@|a|^@n = \ ?$$ </div>})
-
+  
   (define (hints)
     (if (zero? n)
         (list @stringify{The power $a^0$ is defined to be $1$.}
@@ -86,11 +86,11 @@
   (define (new-problem!)
     (set! a (+ 1 (random 3)))    ; [1,3]
     (set! n (- -1 (random 4))))  ;[-5,-1]
-    
+  
   (define (problem-description)
     @stringify{<div>Calculate the power.</div>
                <div> $$@|a|^{@n} = \ ?$$ </div>})
-
+  
   (define (hints)
     (list @stringify{Use the formula: $$a^{-n} = \frac{1}{a^n}$$}
           @stringify{$$a^{@|n|} = \frac{1}{a^@(- n)}.$$}
@@ -131,8 +131,8 @@
   
   (define (hints)
     (list @stringify{
-            First use the rule: $$(s+t)^2=s^2+2\cdot s\cdot t+t^2$$
-            Second use the rule $$(a\cdot s)^2=a^2\cdot s^2$$}
+                     First use the rule: $$(s+t)^2=s^2+2\cdot s\cdot t+t^2$$
+                     Second use the rule $$(a\cdot s)^2=a^2\cdot s^2$$}
           @stringify{($$@{a}\cdot x + @{b})^2 = (@{a}\cdot x)^2 + 2\cdot(@{a})\cdot @{b} + @{b}^2}
           @stringify{ $$@{a}^2\cdot x^2 + 2\cdot(@{a})\cdot @{b} + @{b}^2$$}
           @stringify{ $$@{c2}x^2 + @{c1}x + @{c3}$$}
@@ -262,7 +262,7 @@
 (define (clear-answer-input)
   (call-method ($ "#answer_input_1") "replaceWith" 
                @stringify{<input id='answer_input_1' type='text' value='' 
-                                 onkeyup='@(call-plt-function1 'on-keyup/answer-input "event.keyCode")' />}))
+                          onkeyup='@(call-plt-function1 'on-keyup/answer-input "event.keyCode")' />}))
 
 (define (set-focus-to-answer-input)
   (call-method ($ "#answer_input_1") "focus"))
@@ -288,8 +288,9 @@
 
 (define (get-user-answer)
   (let ([v (call-method ($ "#answer_input_1") "val")])
-    (cond [(string? v) (string->number v)]
-          [else #f])))
+    (cond [(not (string? v)) #f]
+          [else (string->number
+                 (string-trim-both v))])))
 
 ;;; CONTROL
 
@@ -384,72 +385,72 @@
   (append-to-body 
    (let* ([streak-bar-height 30]
           [sbh streak-bar-height])
-   @stringify{
-     <script>
-         function Proxy() {}
-         Proxy.prototype.jsEval = function(expr) { return eval(expr); };
-         var proxy = new Proxy();
-         var storeProxy = function(){@(format "(~a)(~a,~a,proxy)" (plt-function "store-js-proxy") js-identity js-identity);};
-         </script>
-     <style>
-         #scratchpad { padding-left: 30px; overflow: hidden; display: inline; }
-         #scratchpad svg { position: absolute; z-index: 1; min-height: 350px; width: 50%; height: 85%;}
-
-         #exercise_title{font-size: xx-large; display: inline; height:@(+ streak-bar-height 5)}
-         #streak_bar_area{float:right; position: relative;}
-         #streak_bar{float:left; position:relative; border:1px; border-color: black; border-style: solid;}
-         #streak_bar_left {float:left; height: @(id sbh)px; position:relative; width:50px; background-color: green; 
-                                               border-right: solid; border-width: 1px;}
-         #streak_bar_right{float:left; height: @(id sbh)px; position:relative; width:50px; background-color: red;}
-         #streak_bar_current{position:absolute; left: 5px; bottom: 5px; color: white; display: inline; z-index: 1;}
-         #title_spacer{height: 20px; clear:both;}
-         #problem_and_answer_area{}
-         #problem_and_hint_area{float: left;}
-         #problem_area{padding-left: 50px;}
-         #hint_area{padding-left: 50px; margin-top: 10px; border: 1px;}
-         #answer_and_help_area{float: right; width: 300px;}
-         #scratchpad_toggle{ text-decoration: underline; color: dodgerblue;}
-         #answer_area{border: 1px; border-style: solid; border-color: black; background-color: lightblue; padding: 10px;}
-         #answer_area_title{position:relative; font-size:large; margin-bottom: 10px; }
-         #answer_input_1{margin-bottom: 10px}
-         #help_area{border: 1px; border-style: solid; border-color: black; background-color: lightblue; padding: 10px; margin-top: 15px;}
-         #help_area_title{position:relative; font-size:large; margin-bottom: 10px;}
-     </style>
-     <div id='title_area'>
-         <div id='exercise_title'>Addition</div>
-         <div id='streak_bar_area'> 
-             <div id='streak_bar'>
-                 <div id='streak_bar_current'>0</div>
-                 <div id='streak_bar_left'>  </div>   
-                 <div id='streak_bar_right'> </div>   
-             </div>
-             <div>Streak...</div>
-         </div>
-     </div>
-     <div id='title_spacer'></div>
-     <div id='problem_and_answer_area'>
-         <div id='problem_and_hint_area'>
-             <div id='scratchpad'><div></div></div>
-             <div id='problem_area'>1+2=?</div>
-             <div id='hint_area'>Hints are displayed here</div>
-         </div>
-         <div id='answer_and_help_area'>
-             <a id='scratchpad_toggle' onclick='@(call-plt-thunk 'on-toggle-scratchpad)'>Show ScratchPad</a>
-             <div id='answer_area'>
-                 <div id='answer_area_title'>Answer</div>
-                 <div><input id='answer_input_1' type='text' value='7' /></div>
-                 <input id='answer_button' type='button' onclick='@(call-plt-thunk 'on-answer-button)' value='Check Answer'/>
-                 <div><img id='sad' style='display: none;' src='../pics/face-sad.gif'/></div>
-                 <div><img id='happy' style='display: none;' src='../pics/face-happy.gif'/></div>
-             </div>
-             <div id='help_area'>
-                 <div id='help_area_title'>Need help?</div>
-                 <input id='hint_button' type='button' onclick='storeProxy();@(call-plt-thunk 'on-hint-button)' value='Get Hint'/>
-                 <p></p>
-                 <div>Beware: Getting a hint will reset your streak</div>
-             </div>
-         </div>
-     </div>})))
+     @stringify{
+                <script>
+                function Proxy() {}
+                Proxy.prototype.jsEval = function(expr) { return eval(expr); };
+                var proxy = new Proxy();
+                var storeProxy = function(){@(format "(~a)(~a,~a,proxy)" (plt-function "store-js-proxy") js-identity js-identity);};
+                </script>
+                <style>
+                #scratchpad { padding-left: 30px; overflow: hidden; display: inline; }
+                #scratchpad svg { position: absolute; z-index: 1; min-height: 350px; width: 50%; height: 85%;}
+                
+                #exercise_title{font-size: xx-large; display: inline; height:@(+ streak-bar-height 5)}
+                #streak_bar_area{float:right; position: relative;}
+                #streak_bar{float:left; position:relative; border:1px; border-color: black; border-style: solid;}
+                #streak_bar_left {float:left; height: @(id sbh)px; position:relative; width:50px; background-color: green; 
+                                                      border-right: solid; border-width: 1px;}
+                #streak_bar_right{float:left; height: @(id sbh)px; position:relative; width:50px; background-color: red;}
+                #streak_bar_current{position:absolute; left: 5px; bottom: 5px; color: white; display: inline; z-index: 1;}
+                #title_spacer{height: 20px; clear:both;}
+                #problem_and_answer_area{}
+                #problem_and_hint_area{float: left;}
+                #problem_area{padding-left: 50px;}
+                #hint_area{padding-left: 50px; margin-top: 10px; border: 1px;}
+                #answer_and_help_area{float: right; width: 300px;}
+                #scratchpad_toggle{ text-decoration: underline; color: dodgerblue;}
+                #answer_area{border: 1px; border-style: solid; border-color: black; background-color: lightblue; padding: 10px;}
+                #answer_area_title{position:relative; font-size:large; margin-bottom: 10px; }
+                #answer_input_1{margin-bottom: 10px}
+                #help_area{border: 1px; border-style: solid; border-color: black; background-color: lightblue; padding: 10px; margin-top: 15px;}
+                #help_area_title{position:relative; font-size:large; margin-bottom: 10px;}
+                </style>
+                <div id='title_area'>
+                <div id='exercise_title'>Addition</div>
+                <div id='streak_bar_area'> 
+                <div id='streak_bar'>
+                <div id='streak_bar_current'>0</div>
+                <div id='streak_bar_left'>  </div>   
+                <div id='streak_bar_right'> </div>   
+                </div>
+                <div>Streak...</div>
+                </div>
+                </div>
+                <div id='title_spacer'></div>
+                <div id='problem_and_answer_area'>
+                <div id='problem_and_hint_area'>
+                <div id='scratchpad'><div></div></div>
+                <div id='problem_area'>1+2=?</div>
+                <div id='hint_area'>Hints are displayed here</div>
+                </div>
+                <div id='answer_and_help_area'>
+                <a id='scratchpad_toggle' onclick='@(call-plt-thunk 'on-toggle-scratchpad)'>Show ScratchPad</a>
+                <div id='answer_area'>
+                <div id='answer_area_title'>Answer</div>
+                <div><input id='answer_input_1' type='text' value='7' /></div>
+                <input id='answer_button' type='button' onclick='@(call-plt-thunk 'on-answer-button)' value='Check Answer'/>
+                <div><img id='sad' style='display: none;' src='../pics/face-sad.gif'/></div>
+                <div><img id='happy' style='display: none;' src='../pics/face-happy.gif'/></div>
+                </div>
+                <div id='help_area'>
+                <div id='help_area_title'>Need help?</div>
+                <input id='hint_button' type='button' onclick='storeProxy();@(call-plt-thunk 'on-hint-button)' value='Get Hint'/>
+                <p></p>
+                <div>Beware: Getting a hint will reset your streak</div>
+                </div>
+                </div>
+                </div>})))
 
 ;;; START
 
