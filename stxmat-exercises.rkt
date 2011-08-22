@@ -13,176 +13,11 @@
 ; Bugs:
 ;    - MathJax doesn't run on the very first exercise
 
-;;;
-;;; Addition Exercises
-;;; 
-
-; The exercises are of the form x+y where x and y are small integers.
-; The stuedent must answer correctly, before a new problem is generated.
 
 ; The code for the problem and for the exercise framework are separated.
 
-(define-struct exercise (title summary new-problem! problem-description hints check-answer))
-
-(define (addition-exercise)
-  (define x 0)
-  (define y 0)
-  
-  (define (new-problem!)
-    (set! x (random 10))
-    (set! y (random 10)))
-  
-  (define (problem-description)
-    @stringify{<div>Calculate the sum.</div>
-               <div> $$@x + @y = \ ?$$ </div>})
-  
-  (define (hints)
-    (list @stringify{The sum of @x and @y is the same as the sum of @(sub1 x) and @(add1 y).}
-          @stringify{The sum @x + @y is equal to @(+ x y).}))
-  
-  (define (check-answer ans)
-    (= (+ x y) ans))
-  
-  (new-problem!)
-  (make-exercise "Addition" 
-                 "Sums of one digit numbers."
-                 new-problem! problem-description hints check-answer))
-
-(define (power1-exercise)
-  (define a 0)
-  (define n 0)
-  
-  (define (new-problem!)
-    (set! a (random 5))
-    (set! n (random 5)) ; [0,4]
-    (when (= a n 0)
-      (new-problem!)))
-  
-  (define (problem-description)
-    @stringify{<div>Calculate the power.</div>
-               <div> $$@|a|^@n = \ ?$$ </div>})
-  
-  (define (hints)
-    (if (zero? n)
-        (list @stringify{The power $a^0$ is defined to be $1$.}
-              @stringify{$$@|a|^0 = 1.$$})    
-        (list @stringify{The power $a^n$ is $a$ multiplied with itself $n$ times.}
-              @stringify{$$a^@|n| = a @(string-append-n "\\cdot a" (sub1 n)).$$}
-              @stringify{$$@|a|^@|n| = @a @(string-append-n @stringify{\cdot @|a|} (sub1 n)).$$}
-              @stringify{$$@|a|^@|n| = @(expt a n).$$})))
-  
-  (define (check-answer ans)
-    (= (expt a n) ans))
-  
-  (new-problem!)
-  (make-exercise "Powers with natural exponents" 
-                 "Powers with natural exponents."
-                 new-problem! problem-description hints check-answer))
-
-(define (power2-exercise)
-  (define a 0)
-  (define n 0)
-  
-  (define (new-problem!)
-    (set! a (+ 1 (random 3)))    ; [1,3]
-    (set! n (- -1 (random 4))))  ;[-5,-1]
-  
-  (define (problem-description)
-    @stringify{<div>Calculate the power.</div>
-               <div> $$@|a|^{@n} = \ ?$$ </div>})
-  
-  (define (hints)
-    (list @stringify{Use the formula: $$a^{-n} = \frac{1}{a^n}$$}
-          @stringify{$$a^{@|n|} = \frac{1}{a^@(- n)}.$$}
-          @stringify{$$@|a|^{@n} = \frac{1}{@|a|^{@(- n)}}.$$}
-          @stringify{$$@|a|^{@n} = \frac{1}{@|a|^{@(- n)}} = \frac{1}{@|a|@(string-append-n 
-                                                                            @stringify{\cdot @|a|} (sub1 (- n)))}. $$}
-          @stringify{$$@|a|^{@n} = \frac{1}{@(expt a (- n))}.$$ Enter the result as $1/@(expt a (- n))$.}))
-  
-  (define (check-answer ans)
-    (= (expt a n) ans))
-  
-  (new-problem!)
-  (make-exercise "Powers with negative exponents" 
-                 "Powers with natural exponents."
-                 new-problem! problem-description hints check-answer))
-
-(define (squaring-binomial-exercise)
-  ; (ax+b)^2 = a^2 x^2 + 2ab x + b^2  
-  (define a 1)
-  (define b 2)
-  ; depends on a and b:
-  (define c2 (* a a))
-  (define c1 (* 2 a b))
-  (define c0 (* b b))
-  
-  (define (new-problem!)
-    (set! a (random-in-interval 2 6))
-    (when (= a 0) (new-problem!))
-    (set! b (random-in-interval 2 6))
-    (set! c2 (* a a))
-    (set! c1 (* 2 a b))
-    (set! c0 (* b b)))
-  
-  (define (problem-description)
-    @stringify{<div>Rewrite to the form $a\cdot x^2 + b\cdot x + c$.</div>
-               <div>$$( @|a|\cdot x + @|b|)^2 = ?$$</div>
-               })
-  
-  (define (hints)
-    (list @stringify{
-                     First use the rule: $$(s+t)^2=s^2+2\cdot s\cdot t+t^2$$
-                     Second use the rule $$(a\cdot s)^2=a^2\cdot s^2$$}
-          @stringify{($$@{a}\cdot x + @{b})^2 = (@{a}\cdot x)^2 + 2\cdot(@{a})\cdot @{b} + @{b}^2}
-          @stringify{ $$@{a}^2\cdot x^2 + 2\cdot(@{a})\cdot @{b} + @{b}^2$$}
-          @stringify{ $$@{c2}x^2 + @{c1}x + @{c3}$$}
-          ))
-  
-  (define (check-answer ans2 ans1 ans0)
-    (and (= ans2 c2) (= ans1 c1) (= ans1 c1)))
-  
-  (new-problem!)
-  (make-exercise "Square of binomial" 
-                 "Square a binomial."
-                 new-problem! problem-description hints check-answer))
-
-(define (combine-exercises title summary . exercises)
-  ; combine a number of exercises into 1
-  ; all exercises are used with the same probability
-  (let ([all (map (lambda (exercise) (exercise)) exercises)])
-    (let ([current 0])
-      (define (new-problem!)
-        (set! current (random (length all)))
-        ((exercise-new-problem! (list-ref all current))))
-      (define (problem-description)
-        ((exercise-problem-description (list-ref all current))))
-      (define (hints)
-        ((exercise-hints (list-ref all current))))
-      (define (check-answer ans)
-        ((exercise-check-answer (list-ref all current)) ans))
-      (make-exercise title summary new-problem! problem-description hints check-answer))))
-
-(define (power-all-kinds-exercise)
-  (combine-exercises "Powers" "Combines all power exercises" 
-                     power1-exercise power2-exercise))
-
-(define current-exercise (power-all-kinds-exercise)
-  #;(squaring-binomial-exercise))
-
-;;;
-;;; Problem related
-;;;
-
-
-;;;
-;;; General Utilities
-;;;
-
-(define (stringify . xs)
-  ; TODO: FIX when number? becomes available 
-  (apply string-append
-         (map (lambda (x) (if (string? x) x (number->string x)))
-              xs)))
+(define-struct exercise (title summary new-problem! problem-description hints check-answer answer-type))
+(define-struct answer (html css show get))
 
 ;;; 
 ;;; Exercise Framework 
@@ -259,10 +94,38 @@
 
 
 ;;; Answer area
+
+(define (show-answer-field n)
+  (unless (<= 1 n 3)
+    (error "There are only 3 answer fields."))
+  (call-method ($ @stringify{#answer_input_@|n|}) "show"))
+
+(define (get-answer-field n)
+  (let ([v (call-method ($ (format "#answer_input_~a" n)) "val")])
+    (cond [(not (string? v)) #f]
+          [else v])))
+
 (define (clear-answer-input)
-  (call-method ($ "#answer_input_1") "replaceWith" 
-               @stringify{<input id='answer_input_1' type='text' value='' 
-                          onkeyup='@(call-plt-function1 'on-keyup/answer-input "event.keyCode")' />}))
+  (define (clear n)
+    (call-method ($ @stringify{#answer_input_@|n|}) "replaceWith" 
+                 @stringify{<input id='answer_input_@|n|' type='text' value='' 
+                            onkeyup='@(call-plt-function1 'on-keyup/answer-input "event.keyCode")' />}))
+  (for-each clear '(1 2 3)))
+
+(define (hide-answer-labels)
+  (define (hide n)
+    (call-method ($ @stringify{#answer_input_label_@|n|}) "hide")) 
+  (for-each hide '(1 2 3)))
+
+(define (hide-answer-inputs)
+  (define (hide n)
+    (call-method ($ @stringify{#answer_input_@|n|}) "hide")) 
+  (for-each hide '(1 2 3)))
+
+(define (hide-answer-inputs-and-labels)
+  ; (hide-answer-labels)
+  (hide-answer-inputs))
+
 
 (define (set-focus-to-answer-input)
   (call-method ($ "#answer_input_1") "focus"))
@@ -284,13 +147,6 @@
     (call-method ($ "#streak_bar_right") "css" "width" (max (min (- total-bar-width current-width) total-bar-width) 0))
     (call-method ($ "#streak_bar_current") "html" @stringify{<span>@(number->string streak-current)</span>})))
 
-;;; VIEW GETTERS
-
-(define (get-user-answer)
-  (let ([v (call-method ($ "#answer_input_1") "val")])
-    (cond [(not (string? v)) #f]
-          [else (string->number
-                 (string-trim-both v))])))
 
 ;;; CONTROL
 
@@ -298,7 +154,7 @@
   (let ([state 'next])
     (lambda ()
       (case state
-        [(check)   (let ([ans (get-user-answer)])
+        [(check)   (let ([ans ((answer-get (exercise-answer-type current-exercise)))])
                      (if (and ans ((exercise-check-answer current-exercise) ans))
                          (begin
                            (set! state 'next)
@@ -316,6 +172,8 @@
                      ((exercise-new-problem! current-exercise))
                      (update-problem-area 
                       ((exercise-problem-description current-exercise)))
+                     (hide-answer-inputs-and-labels)
+                     ((answer-show (exercise-answer-type current-exercise)))
                      (reset-hint-index)
                      (change-hint-button-text "Get Hint")
                      (hide-hint-area)
@@ -413,6 +271,11 @@
                 #answer_area{border: 1px; border-style: solid; border-color: black; background-color: lightblue; padding: 10px;}
                 #answer_area_title{position:relative; font-size:large; margin-bottom: 10px; }
                 #answer_input_1{margin-bottom: 10px}
+                #answer_input_2{margin-bottom: 10px; display: inline;}
+                #answer_input_3{margin-bottom: 10px; display: inline;}
+                #answer_input_lable_1{display: inline; margin-right: 5px;}
+                #answer_input_lable_2{display: inline; margin-right: 5px;}
+                #answer_input_lable_3{display: inline; margin-right: 5px;}
                 #help_area{border: 1px; border-style: solid; border-color: black; background-color: lightblue; padding: 10px; margin-top: 15px;}
                 #help_area_title{position:relative; font-size:large; margin-bottom: 10px;}
                 </style>
@@ -436,12 +299,15 @@
                 </div>
                 <div id='answer_and_help_area'>
                 <a id='scratchpad_toggle' onclick='@(call-plt-thunk 'on-toggle-scratchpad)'>Show ScratchPad</a>
+                
                 <div id='answer_area'>
-                <div id='answer_area_title'>Answer</div>
-                <div><input id='answer_input_1' type='text' value='7' /></div>
-                <input id='answer_button' type='button' onclick='@(call-plt-thunk 'on-answer-button)' value='Check Answer'/>
-                <div><img id='sad' style='display: none;' src='../pics/face-sad.gif'/></div>
-                <div><img id='happy' style='display: none;' src='../pics/face-happy.gif'/></div>
+                    <div id='answer_area_title'>Answer</div>
+                    <div><div id='answer_input_label_1'>a</div><input id='answer_input_1' type='text' value='7' /></div>
+                    <div><div id='answer_input_label_2'>b</div><input id='answer_input_2' type='text' value='8' /></div>
+                    <div><div id='answer_input_label_3'>c</div><input id='answer_input_3' type='text' value='9' /></div>
+                    <input id='answer_button' type='button' onclick='@(call-plt-thunk 'on-answer-button)' value='Check Answer'/>
+                    <div><img id='sad' style='display: none;' src='../pics/face-sad.gif'/></div>
+                    <div><img id='happy' style='display: none;' src='../pics/face-happy.gif'/></div>
                 </div>
                 <div id='help_area'>
                 <div id='help_area_title'>Need help?</div>
@@ -451,6 +317,187 @@
                 </div>
                 </div>
                 </div>})))
+
+;;; ANSWERS
+
+; (define-struct answer (html css show hide get))
+
+
+
+(define number-answer 
+  (make-answer 
+   @stringify{ <foo>...</foo> }
+   @stringify{ {foo: bar;} }
+   (lambda () (show-answer-field 1))
+   (lambda () (string->number
+               (string-trim-both
+                (get-answer-field 1))))))
+
+(define three-number-answer 
+  (make-answer 
+   @stringify{ <foo>...</foo> }
+   @stringify{ {foo: bar;} }
+   (lambda () (for-each show-answer-field '(1 2 3)))
+   (lambda () (map (lambda (n)
+                     (string->number
+                      (string-trim-both
+                       (get-answer-field n))))
+                   '(1 2 3)))))
+
+;;
+;;; EXERCISES
+;;;
+
+(define (addition-exercise)
+  ; The exercises are of the form x+y where x and y are small integers.
+  ; The stuedent must answer correctly, before a new problem is generated.
+  (define x 0)
+  (define y 0)
+  
+  (define (new-problem!)
+    (set! x (random 10))
+    (set! y (random 10)))
+  
+  (define (problem-description)
+    @stringify{<div>Calculate the sum.</div>
+               <div> $$@x + @y = \ ?$$ </div>})
+  
+  (define (hints)
+    (list @stringify{The sum of @x and @y is the same as the sum of @(sub1 x) and @(add1 y).}
+          @stringify{The sum @x + @y is equal to @(+ x y).}))
+  
+  (define (check-answer ans)
+    (= (+ x y) ans))
+  
+  (new-problem!)
+  (make-exercise "Addition" 
+                 "Sums of one digit numbers."
+                 new-problem! problem-description hints check-answer number-answer))
+
+(define (power1-exercise)
+  (define a 0)
+  (define n 0)
+  
+  (define (new-problem!)
+    (set! a (random 5))
+    (set! n (random 5)) ; [0,4]
+    (when (= a n 0)
+      (new-problem!)))
+  
+  (define (problem-description)
+    @stringify{<div>Calculate the power.</div>
+               <div> $$@|a|^@n = \ ?$$ </div>})
+  
+  (define (hints)
+    (if (zero? n)
+        (list @stringify{The power $a^0$ is defined to be $1$.}
+              @stringify{$$@|a|^0 = 1.$$})    
+        (list @stringify{The power $a^n$ is $a$ multiplied with itself $n$ times.}
+              @stringify{$$a^@|n| = a @(string-append-n "\\cdot a" (sub1 n)).$$}
+              @stringify{$$@|a|^@|n| = @a @(string-append-n @stringify{\cdot @|a|} (sub1 n)).$$}
+              @stringify{$$@|a|^@|n| = @(expt a n).$$})))
+  
+  (define (check-answer ans)
+    (= (expt a n) ans))
+  
+  (new-problem!)
+  (make-exercise "Powers with natural exponents" 
+                 "Powers with natural exponents."
+                 new-problem! problem-description hints check-answer number-answer))
+
+(define (power2-exercise)
+  (define a 0)
+  (define n 0)
+  
+  (define (new-problem!)
+    (set! a (+ 1 (random 3)))    ; [1,3]
+    (set! n (- -1 (random 4))))  ;[-5,-1]
+  
+  (define (problem-description)
+    @stringify{<div>Calculate the power.</div>
+               <div> $$@|a|^{@n} = \ ?$$ </div>})
+  
+  (define (hints)
+    (list @stringify{Use the formula: $$a^{-n} = \frac{1}{a^n}$$}
+          @stringify{$$a^{@|n|} = \frac{1}{a^@(- n)}.$$}
+          @stringify{$$@|a|^{@n} = \frac{1}{@|a|^{@(- n)}}.$$}
+          @stringify{$$@|a|^{@n} = \frac{1}{@|a|^{@(- n)}} = \frac{1}{@|a|@(string-append-n 
+                                                                            @stringify{\cdot @|a|} (sub1 (- n)))}. $$}
+          @stringify{$$@|a|^{@n} = \frac{1}{@(expt a (- n))}.$$ Enter the result as $1/@(expt a (- n))$.}))
+  
+  (define (check-answer ans)
+    (= (expt a n) ans))
+  
+  (new-problem!)
+  (make-exercise "Powers with negative exponents" 
+                 "Powers with natural exponents."
+                 new-problem! problem-description hints check-answer number-answer))
+
+(define (squaring-binomial-exercise)
+  ; (ax+b)^2 = a^2 x^2 + 2ab x + b^2  
+  (define a 1)
+  (define b 2)
+  ; depends on a and b:
+  (define c2 (* a a))
+  (define c1 (* 2 a b))
+  (define c0 (* b b))
+  
+  (define (new-problem!)
+    (set! a (random-in-interval 2 6))
+    (when (= a 0) (new-problem!))
+    (set! b (random-in-interval 2 6))
+    (set! c2 (* a a))
+    (set! c1 (* 2 a b))
+    (set! c0 (* b b)))
+  
+  (define (problem-description)
+    @stringify{<div>Rewrite to the form $a\cdot x^2 + b\cdot x + c$.</div>
+               <div>$$( @|a|\cdot x + @|b|)^2 = ?$$</div>
+               })
+  
+  (define (hints)
+    (list @stringify{
+                     First use the rule:  $(s+t)^2=s^2+2\cdot s\cdot t+t^2$ <br/>
+                     Second use the rule: $(a\cdot s)^2=a^2\cdot s^2$}
+          @stringify{ $$(@|a|\cdot x + @|b|)^2 = (@|a|\cdot x)^2 + 2\cdot(@|a|x)\cdot @|b| + @|b|^2 $$}
+          @stringify{ $$ = @|a|^2\cdot x^2 + 2\cdot(@|a|x)\cdot @|b| + @|b|^2$$}
+          @stringify{ $$ = @|c2|x^2 + @|c1|x + @|c0|$$}
+          ))
+  
+  (define (check-answer ans)
+    (equal? ans (list c2 c1 c0)))
+  
+  (new-problem!)
+  (make-exercise "Square of binomial" 
+                 "Square a binomial."
+                 new-problem! problem-description hints check-answer three-number-answer))
+
+(define (combine-exercises title summary . exercises)
+  ; combine a number of exercises into 1
+  ; all exercises are used with the same probability
+  (let ([all (map (lambda (exercise) (exercise)) exercises)])
+    (let ([current 0])
+      (define (new-problem!)
+        (set! current (random (length all)))
+        ((exercise-new-problem! (list-ref all current))))
+      (define (problem-description)
+        ((exercise-problem-description (list-ref all current))))
+      (define (hints)
+        ((exercise-hints (list-ref all current))))
+      (define (check-answer ans)
+        ((exercise-check-answer (list-ref all current)) ans))
+      (define answer-type (exercise-answer-type (list-ref all current)))
+      (make-exercise title summary new-problem! problem-description hints 
+                     check-answer answer-type))))
+
+(define (power-all-kinds-exercise)
+  (combine-exercises "Powers" "Combines all power exercises" 
+                     power1-exercise power2-exercise))
+
+(define current-exercise 
+  #;(power-all-kinds-exercise)
+  (squaring-binomial-exercise))
+
 
 ;;; START
 

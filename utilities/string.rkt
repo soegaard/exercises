@@ -32,3 +32,8 @@
       ""
       (let ([r (string-append-n str (- n 1))])
         (string-append str r))))
+
+(define (stringify . xs)
+  (apply string-append
+         (map (lambda (x) (if (number? x) (number->string x) x))
+              xs)))

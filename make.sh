@@ -1,3 +1,5 @@
+which racket &>/dev/null
+[ $? -eq 0 ] || export PATH=$PATH:/Applications/Racket/bin/
 whalesong/current/whalesong.rkt build stxmat-exercises.rkt
 cd build
 mv ../stxmat-exercises.xhtml .
