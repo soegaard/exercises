@@ -12,7 +12,7 @@
 ;    - Credits
 ; Bugs:
 ;    - MathJax doesn't run on the very first exercise
-
+;    - 1/ 3  is not parsed as 1/3 due to the space
 
 ; The code for the problem and for the exercise framework are separated.
 
@@ -100,6 +100,11 @@
     (error "There are only 3 answer fields."))
   (call-method ($ @stringify{#answer_input_@|n|}) "show"))
 
+(define (show-answer-label n)
+  (unless (<= 1 n 3)
+    (error "There are only 3 answer labels."))
+  (call-method ($ @stringify{#answer_input_label_@|n|}) "show"))
+
 (define (get-answer-field n)
   (let ([v (call-method ($ (format "#answer_input_~a" n)) "val")])
     (cond [(not (string? v)) #f]
@@ -119,11 +124,12 @@
 
 (define (hide-answer-inputs)
   (define (hide n)
+    ; (alert @stringify{#answer_input_@|n|})
     (call-method ($ @stringify{#answer_input_@|n|}) "hide")) 
   (for-each hide '(1 2 3)))
 
 (define (hide-answer-inputs-and-labels)
-  ; (hide-answer-labels)
+  (hide-answer-labels)
   (hide-answer-inputs))
 
 
@@ -172,12 +178,12 @@
                      ((exercise-new-problem! current-exercise))
                      (update-problem-area 
                       ((exercise-problem-description current-exercise)))
+                     (clear-answer-input) ; clear before hide...
                      (hide-answer-inputs-and-labels)
                      ((answer-show (exercise-answer-type current-exercise)))
                      (reset-hint-index)
                      (change-hint-button-text "Get Hint")
                      (hide-hint-area)
-                     (clear-answer-input)
                      (set-focus-to-answer-input))]
         [else     
          (alert "Error: Unknown state in 'on-answer-button'")])
@@ -273,9 +279,9 @@
                 #answer_input_1{margin-bottom: 10px}
                 #answer_input_2{margin-bottom: 10px; display: inline;}
                 #answer_input_3{margin-bottom: 10px; display: inline;}
-                #answer_input_lable_1{display: inline; margin-right: 5px;}
-                #answer_input_lable_2{display: inline; margin-right: 5px;}
-                #answer_input_lable_3{display: inline; margin-right: 5px;}
+                #answer_input_label_1{display: inline; margin-right: 5px;}
+                #answer_input_label_2{display: inline; margin-right: 5px;}
+                #answer_input_label_3{display: inline; margin-right: 5px;}
                 #help_area{border: 1px; border-style: solid; border-color: black; background-color: lightblue; padding: 10px; margin-top: 15px;}
                 #help_area_title{position:relative; font-size:large; margin-bottom: 10px;}
                 </style>
@@ -320,15 +326,15 @@
 
 ;;; ANSWERS
 
-; (define-struct answer (html css show hide get))
-
-
+; (define-struct answer (html css show get))
 
 (define number-answer 
   (make-answer 
    @stringify{ <foo>...</foo> }
    @stringify{ {foo: bar;} }
-   (lambda () (show-answer-field 1))
+   (lambda () 
+     (show-answer-field 1)
+     (show-answer-label 1))
    (lambda () (string->number
                (string-trim-both
                 (get-answer-field 1))))))
@@ -337,13 +343,14 @@
   (make-answer 
    @stringify{ <foo>...</foo> }
    @stringify{ {foo: bar;} }
-   (lambda () (for-each show-answer-field '(1 2 3)))
+   (lambda () 
+     (for-each show-answer-field '(1 2 3))
+     (for-each show-answer-label '(1 2 3)))
    (lambda () (map (lambda (n)
                      (string->number
                       (string-trim-both
                        (get-answer-field n))))
                    '(1 2 3)))))
-
 ;;
 ;;; EXERCISES
 ;;;
@@ -389,14 +396,14 @@
                <div> $$@|a|^@n = \ ?$$ </div>})
   
   (define (hints)
-    (if (zero? n)
-        (list @stringify{The power $a^0$ is defined to be $1$.}
-              @stringify{$$@|a|^0 = 1.$$})    
-        (list @stringify{The power $a^n$ is $a$ multiplied with itself $n$ times.}
-              @stringify{$$a^@|n| = a @(string-append-n "\\cdot a" (sub1 n)).$$}
-              @stringify{$$@|a|^@|n| = @a @(string-append-n @stringify{\cdot @|a|} (sub1 n)).$$}
-              @stringify{$$@|a|^@|n| = @(expt a n).$$})))
-  
+    (cond
+      [(= n 0) (list @stringify{The power $a^0$ is defined to be $1$.}
+                     @stringify{$$@|a|^0 = 1.$$})]
+      [else    (list @stringify{The power $a^n$ is $a$ multiplied with itself $n$ times.}
+                     @stringify{$$a^@|n| = a @(string-append-n "\\cdot a" (sub1 n)).$$}
+                     @stringify{$$@|a|^@|n| = @a @(string-append-n @stringify{\cdot @|a|} (sub1 n)).$$}
+                     @stringify{$$@|a|^@|n| = @(expt a n).$$})]))
+
   (define (check-answer ans)
     (= (expt a n) ans))
   
@@ -501,11 +508,14 @@
 
 ;;; START
 
-(void ((exercise-new-problem! current-exercise))
+(void (js-eval "storeProxy();")
+      ((exercise-new-problem! current-exercise))
       (generate-body)
       (update-exercise-title)
+      (hide-answer-inputs-and-labels)
       (on-answer-button)
       (clear-answer-input)
+      (hide-answer-inputs-and-labels)
+      ((answer-show (exercise-answer-type current-exercise)))
       (update-streak-bar)
-      (js-eval "storeProxy();")
       (run-mathjax))
