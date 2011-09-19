@@ -13,12 +13,16 @@
          racket/bool
          racket/list
          racket/match)
+
 (require/typed "../logger.rkt"
                [log-debug (String -> Void)])
 
+(require/typed "compiler-helper.rkt"
+               [ensure-const-value (Any -> const-value)])
+
 (provide (rename-out [-compile compile])
-         compile-general-procedure-call
-         append-instruction-sequences)
+         compile-general-procedure-call)
+
 
 
 
@@ -392,7 +396,7 @@
         (make-PushControlFrame/Call on-return)
         (make-GotoStatement (ModuleEntry a-module-name))
         on-return-multiple
-        (make-PopEnvironment (make-SubtractArg (make-Reg 'argcount)
+        (make-PopEnvironment (new-SubtractArg (make-Reg 'argcount)
                                                (make-Const 1))
                              (make-Const 0))
         on-return))]))
@@ -450,7 +454,8 @@
     (end-with-linkage linkage
                       cenv
                       (append-instruction-sequences
-                       (make-AssignImmediateStatement target (make-Const (Constant-v exp)))
+                       (make-AssignImmediateStatement target (make-Const
+                                                              (ensure-const-value (Constant-v exp))))
                        singular-context-check))))
 
 
@@ -590,7 +595,7 @@
             
             (compile (first seq) cenv 'val return-linkage/nontail)
             on-return/multiple
-            (make-PopEnvironment (make-SubtractArg (make-Reg 'argcount)
+            (make-PopEnvironment (new-SubtractArg (make-Reg 'argcount)
                                                    (make-Const 1))
                                  (make-Const 0))
             on-return
@@ -654,7 +659,7 @@
              [(ReturnLinkage-tail? linkage)
               (append-instruction-sequences 
                (make-PopEnvironment (make-Const (length cenv)) 
-                                    (make-SubtractArg (make-Reg 'argcount)
+                                    (new-SubtractArg (make-Reg 'argcount)
                                                       (make-Const 1)))
                (make-AssignImmediateStatement 'proc (make-ControlStackLabel/MultipleValueReturn))
                (make-PopControlFrame)
@@ -839,7 +844,7 @@
                                            (make-PerformStatement 
                                             (make-UnspliceRestFromStack! 
                                              (make-Const (Lam-num-parameters exp))
-                                             (make-SubtractArg (make-Reg 'argcount)
+                                             (new-SubtractArg (make-Reg 'argcount)
                                                                (make-Const (Lam-num-parameters exp)))))
                                            empty-instruction-sequence)]
          [maybe-install-closure-values : InstructionSequence
@@ -1208,7 +1213,7 @@
   (map (lambda: ([e : Expression])
          (cond
            [(Constant? e)
-            (make-Const (Constant-v e))]
+            (make-Const (ensure-const-value (Constant-v e)))]
            [(LocalRef? e)
             (make-EnvLexicalReference (LocalRef-depth e)
                                       (LocalRef-unbox? e))]
@@ -1412,13 +1417,13 @@
        linkage
        cenv
        (append-instruction-sequences
-        (make-TestAndJumpStatement (make-TestPrimitiveProcedure
-                                    (make-Reg 'proc))
-                                   primitive-branch)
+        ;; (make-TestAndJumpStatement (make-TestPrimitiveProcedure
+        ;;                             (make-Reg 'proc))
+        ;;                            primitive-branch)
         
         
         ;; Compiled branch
-        (make-PerformStatement (make-CheckClosureArity! (make-Reg 'argcount)))
+        (make-PerformStatement (make-CheckClosureAndArity!))
         (compile-compiled-procedure-application cenv
                                                 number-of-arguments
                                                 'dynamic
@@ -1426,24 +1431,24 @@
                                                 compiled-linkage)
         
         ;; Primitive branch
-        primitive-branch
-        (make-PerformStatement (make-CheckPrimitiveArity! (make-Reg 'argcount)))
-        (compile-primitive-application cenv target primitive-linkage)
+        ;; primitive-branch
+        ;; (make-PerformStatement (make-CheckPrimitiveArity! (make-Reg 'argcount)))
+        ;; (compile-primitive-application cenv target primitive-linkage)
         after-call)))))
 
 
 
-(: compile-primitive-application (CompileTimeEnvironment Target Linkage -> InstructionSequence))
-(define (compile-primitive-application cenv target linkage)
-  (let ([singular-context-check (emit-singular-context linkage)])
-    (append-instruction-sequences
-     (make-AssignPrimOpStatement 'val (make-ApplyPrimitiveProcedure))
-     (make-PopEnvironment (make-Reg 'argcount)
-                          (make-Const 0))
-     (if (eq? target 'val)
-         empty-instruction-sequence
-         (make-AssignImmediateStatement target (make-Reg 'val)))
-     singular-context-check)))
+;; (: compile-primitive-application (CompileTimeEnvironment Target Linkage -> InstructionSequence))
+;; (define (compile-primitive-application cenv target linkage)
+;;   (let ([singular-context-check (emit-singular-context linkage)])
+;;     (append-instruction-sequences
+;;      (make-AssignPrimOpStatement 'val (make-ApplyPrimitiveProcedure))
+;;      (make-PopEnvironment (make-Reg 'argcount)
+;;                           (make-Const 0))
+;;      (if (eq? target 'val)
+;;          empty-instruction-sequence
+;;          (make-AssignImmediateStatement target (make-Reg 'val)))
+;;      singular-context-check)))
 
 
 
@@ -1539,7 +1544,7 @@
                  (append-instruction-sequences
                   nontail-jump-into-procedure
                   on-return/multiple
-                  (make-PopEnvironment (make-SubtractArg (make-Reg 'argcount)
+                  (make-PopEnvironment (new-SubtractArg (make-Reg 'argcount)
                                                          (make-Const 1))
                                        (make-Const 0))
                   on-return)])]
@@ -1579,7 +1584,7 @@
     [(eq? context 'drop-multiple)
      (append-instruction-sequences
       on-return/multiple
-      (make-PopEnvironment (SubtractArg (make-Reg 'argcount) (make-Const 1))
+      (make-PopEnvironment (new-SubtractArg (make-Reg 'argcount) (make-Const 1))
                            (make-Const 0))
       on-return)]
     
@@ -1605,7 +1610,7 @@
           (append-instruction-sequences
            on-return/multiple
            ;; if the wrong number of arguments come in, die
-           (make-TestAndJumpStatement (make-TestZero (make-SubtractArg (make-Reg 'argcount)
+           (make-TestAndJumpStatement (make-TestZero (new-SubtractArg (make-Reg 'argcount)
                                                                        (make-Const context)))
                                       after-value-check)
            on-return
@@ -1655,7 +1660,7 @@
           '?]))]
     
     [(Constant? exp)
-     (make-Const (Constant-v exp))]
+     (make-Const (ensure-const-value (Constant-v exp)))]
     
     [(PrimitiveKernelValue? exp)
      exp]
@@ -1757,7 +1762,7 @@
          ;; dynamic number of arguments that need
          ;; to be preserved
          (make-PopEnvironment (make-Const n)
-                              (make-SubtractArg
+                              (new-SubtractArg
                                (make-Reg 'argcount)
                                (make-Const 1)))]
         [else
@@ -1772,7 +1777,7 @@
                 ;; n-1 values on stack that we need to route
                 ;; around
                 (make-PopEnvironment (make-Const n)
-                                     (make-SubtractArg
+                                     (new-SubtractArg
                                       (make-Const context)
                                       (make-Const 1)))])])
       after-let))))
@@ -2061,22 +2066,6 @@
 
 
 
-
-(: append-instruction-sequences (InstructionSequence * -> InstructionSequence))
-(define (append-instruction-sequences . seqs)
-  (append-seq-list seqs))
-
-(: append-2-sequences (InstructionSequence InstructionSequence -> InstructionSequence))
-(define (append-2-sequences seq1 seq2)
-  (make-instruction-sequence
-   (append (statements seq1) (statements seq2))))
-
-(: append-seq-list ((Listof InstructionSequence) -> InstructionSequence))
-(define (append-seq-list seqs)
-  (if (null? seqs)
-      empty-instruction-sequence
-      (append-2-sequences (car seqs)
-                          (append-seq-list (cdr seqs)))))
 
 
 (: ensure-natural (Integer -> Natural))

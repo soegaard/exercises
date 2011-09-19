@@ -64,18 +64,61 @@
   #:transparent)
 
 
+(define-type const-value
+  (Rec C
+       (U Symbol
+          String
+          Number
+          Boolean
+          Void
+          Null
+          Char
+          Bytes
+          Path
+          (Pairof C C)
+          (Vectorof C)
+          (Boxof C))))
+
 
 (define-struct: Label ([name : Symbol])
   #:transparent)
 (define-struct: Reg ([name : AtomicRegisterSymbol])
   #:transparent)
-(define-struct: Const ([const : Any])
+(define-struct: Const ([const : const-value])
   #:transparent)
 
 ;; Limited arithmetic on OpArgs
 (define-struct: SubtractArg ([lhs : OpArg]
                              [rhs : OpArg])
   #:transparent)
+
+
+(: new-SubtractArg (OpArg OpArg -> OpArg))
+(define (new-SubtractArg lhs rhs)
+  ;; FIXME: do some limited constant folding here
+  (cond
+   [(and (Const? lhs)(Const? rhs))
+    (let ([lhs-val (Const-const lhs)]
+          [rhs-val (Const-const rhs)])
+      (cond [(and (number? lhs-val)
+                  (number? rhs-val))
+             (make-Const (- lhs-val rhs-val))]
+            [else
+             (make-SubtractArg lhs rhs)]))]
+   [(Const? rhs)
+    (let ([rhs-val (Const-const rhs)])
+      (cond
+       [(and (number? rhs-val)
+             (= rhs-val 0))
+        lhs]
+       [else
+        (make-SubtractArg lhs rhs)]))]
+   [else
+    (make-SubtractArg lhs rhs)]))
+
+
+
+
 
 
 ;; Gets the return address embedded at the top of the control stack.
@@ -138,6 +181,8 @@
 
 ;; instruction sequences
 (define-type UnlabeledStatement (U StraightLineStatement BranchingStatement))
+
+(define-predicate UnlabeledStatement? UnlabeledStatement)
 
 
 ;; Debug print statement.
@@ -235,7 +280,6 @@
 (define-type PrimitiveOperator (U GetCompiledProcedureEntry
                                   MakeCompiledProcedure
                                   MakeCompiledProcedureShell
-                                  ApplyPrimitiveProcedure
                                   
 
                                   MakeBoxedEnvironmentValue
@@ -265,15 +309,6 @@
                                             [arity : Arity]
                                             [display-name : (U Symbol LamPositionalName)])
   #:transparent)
-
-
-;; Applies the primitive procedure that's stored in the proc register, using
-;; the argcount number of values that are bound in the environment as arguments
-;; to that primitive.
-(define-struct: ApplyPrimitiveProcedure ()
-  #:transparent)
-
-
 
 
 
@@ -311,14 +346,12 @@
                             TestTrue
                             TestOne
                             TestZero
-                            TestPrimitiveProcedure
                             TestClosureArityMismatch
                             ))
 (define-struct: TestFalse ([operand : OpArg]) #:transparent)
 (define-struct: TestTrue ([operand : OpArg]) #:transparent)
 (define-struct: TestOne ([operand : OpArg]) #:transparent)
 (define-struct: TestZero ([operand : OpArg]) #:transparent)
-(define-struct: TestPrimitiveProcedure ([operand : OpArg]) #:transparent)
 (define-struct: TestClosureArityMismatch ([closure : OpArg]
                                           [n : OpArg]) #:transparent)
 
@@ -330,13 +363,10 @@
                                      [pos : Natural])
   #:transparent)
 
-;; Check the closure procedure value in 'proc and make sure it can accept the
-;; # of arguments (stored as a number in the argcount register.).
-(define-struct: CheckClosureArity! ([num-args : OpArg])
+;; Check the closure procedure value in 'proc and make sure it's a closure
+;; that can accept the right arguments (stored as a number in the argcount register.).
+(define-struct: CheckClosureAndArity! ()
   #:transparent)
-(define-struct: CheckPrimitiveArity! ([num-args : OpArg])
-  #:transparent)
-
 
 
 ;; Extends the environment with a prefix that holds
@@ -436,8 +466,7 @@
 
 (define-type PrimitiveCommand (U                                
                                CheckToplevelBound!
-                               CheckClosureArity!
-                               CheckPrimitiveArity!
+                               CheckClosureAndArity!
 
                                ExtendEnvironment/Prefix!
                                InstallClosureValues!
@@ -466,10 +495,16 @@
 
 
 
-(define-type InstructionSequence (U Symbol LinkedLabel Statement instruction-sequence))
-(define-struct: instruction-sequence ([statements : (Listof Statement)])
+(define-type InstructionSequence (U Symbol
+                                    LinkedLabel
+                                    UnlabeledStatement
+                                    instruction-sequence-list
+                                    instruction-sequence-chunks))
+(define-struct: instruction-sequence-list ([statements : (Listof Statement)])
   #:transparent)
-(define empty-instruction-sequence (make-instruction-sequence '()))
+(define-struct: instruction-sequence-chunks ([chunks : (Listof InstructionSequence)])
+  #:transparent)
+(define empty-instruction-sequence (make-instruction-sequence-list '()))
 
 
 (define-predicate Statement? Statement)
@@ -477,15 +512,45 @@
 
 (: statements (InstructionSequence -> (Listof Statement)))
 (define (statements s)
-  (cond [(symbol? s) 
-         (list s)]
-        [(LinkedLabel? s)
-         (list s)]
-        [(Statement? s)
-         (list s)]
-        [else
-         (instruction-sequence-statements s)]))
+  (reverse (statements-fold (inst cons Statement (Listof Statement))
+                            '() s)))
 
+
+(: statements-fold (All (A) ((Statement A -> A) A InstructionSequence -> A)))
+(define (statements-fold f acc seq)
+  (cond
+   [(symbol? seq)
+    (f seq acc)]
+   [(LinkedLabel? seq)
+    (f seq acc)]
+   [(UnlabeledStatement? seq)
+    (f seq acc)]
+   [(instruction-sequence-list? seq)
+    (foldl f acc (instruction-sequence-list-statements seq))]
+   [(instruction-sequence-chunks? seq)
+    (foldl (lambda: ([subseq : InstructionSequence] [acc : A])
+             (statements-fold f acc subseq))
+           acc
+           (instruction-sequence-chunks-chunks seq))]))
+
+            
+
+
+
+
+(: append-instruction-sequences (InstructionSequence * -> InstructionSequence))
+(define (append-instruction-sequences . seqs)
+  (append-seq-list seqs))
+
+(: append-2-sequences (InstructionSequence InstructionSequence -> InstructionSequence))
+(define (append-2-sequences seq1 seq2)
+  (make-instruction-sequence-chunks (list seq1 seq2)))
+
+(: append-seq-list ((Listof InstructionSequence) -> InstructionSequence))
+(define (append-seq-list seqs)
+  (if (null? seqs)
+      empty-instruction-sequence
+      (make-instruction-sequence-chunks seqs)))
 
 
 

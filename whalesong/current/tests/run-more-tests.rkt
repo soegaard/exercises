@@ -7,10 +7,15 @@
 ;; type replaced with .expected.
 
 (test "more-tests/booleans.rkt")
+(test "more-tests/checking.rkt")
 (test "more-tests/string-tests.rkt")
+(test "more-tests/chars.rkt")
 (test "more-tests/numbers.rkt")
 (test "more-tests/hello.rkt")
+(test "more-tests/sharing.rkt")
 (test "more-tests/simple-functions.rkt")
+(test "more-tests/map.rkt")
+(test "more-tests/quasi.rkt")
 (test "more-tests/sk-generator.rkt")
 (test "more-tests/sk-generator-2.rkt")
 (test "more-tests/simple-structs.rkt")
@@ -22,3 +27,5 @@
 (test "more-tests/hello-bf.rkt")
 (test "more-tests/conform.rkt")
 (test "more-tests/earley.rkt")
+(test "more-tests/view.rkt")
+(test "more-tests/weird-cc.rkt")

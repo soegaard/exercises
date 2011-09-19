@@ -21,6 +21,12 @@ var checkProcedureWithKey = plt.baselib.check.makeCheckArgumentType(
                           plt.baselib.arity.isArityMatching(x.racketArity, 2)); },
     'procedure that consumes a world argument and a key');
 
+var checkProcedureWithMouse = plt.baselib.check.makeCheckArgumentType(
+    function(x) { return (plt.baselib.functions.isProcedure(x) &&
+                          plt.baselib.arity.isArityMatching(x.racketArity, 4)); },
+    'procedure that consumes a world argument, an x and y coordinate, and a mouse event');
+
+
 
 var checkHandler = plt.baselib.check.makeCheckArgumentType(
     isWorldConfigOption,
@@ -39,9 +45,9 @@ EXPORTS['big-bang'] =
         'big-bang',
         plt.baselib.arity.makeArityAtLeast(1),
         function(MACHINE) {
-            var initialWorldValue = MACHINE.env[MACHINE.env.length - 1];
+            var initialWorldValue = MACHINE.e[MACHINE.e.length - 1];
 	    var handlers = [];
-	    for (var i = 1; i < MACHINE.argcount; i++) {
+	    for (var i = 1; i < MACHINE.a; i++) {
 		handlers.push(checkHandler(MACHINE, 'big-bang', i));
 	    }
 	    bigBang(MACHINE, initialWorldValue, handlers);
@@ -54,10 +60,10 @@ EXPORTS['on-tick'] =
         'on-tick',
         plt.baselib.lists.makeList(1, 2),
         function(MACHINE) {
-	    if (MACHINE.argcount === 1) {
+	    if (MACHINE.a === 1) {
 		var f = checkProcedure1(MACHINE, "on-tick", 0);
 		return new OnTick(f, Math.floor(DEFAULT_TICK_DELAY * 1000));
-	    } else if (MACHINE.argcount === 2) {
+	    } else if (MACHINE.a === 2) {
 		var f = checkProcedure1(MACHINE, "on-tick", 0);
 		var delay = checkNonNegativeReal(MACHINE, "on-tick", 1);
 		return new OnTick(f, Math.floor(jsnums.toFixnum(delay) * 1000));
@@ -96,6 +102,17 @@ EXPORTS['on-key'] =
             var f = checkProcedureWithKey(MACHINE, "on-key", 0);
             return new OnKey(f);
         });
+
+EXPORTS['on-mouse'] =
+    makePrimitiveProcedure(
+        'on-mouse',
+        1,
+        function(MACHINE) {
+            var f = checkProcedureWithMouse(MACHINE, "on-key", 0);
+            return new OnMouse(f);
+        });
+
+
 
 EXPORTS['key=?'] =
     makePrimitiveProcedure(

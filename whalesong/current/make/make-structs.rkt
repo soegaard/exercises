@@ -31,6 +31,23 @@
 
 
 
+(: source-name (Source -> String))
+(define (source-name a-source)
+  (cond
+   [(StatementsSource? a-source)
+    "<StatementsSource>"]
+   [(UninterpretedSource? a-source)
+    "<UninterpretedSource>"]
+   [(MainModuleSource? a-source)
+    "<MainModuleSource>"]
+   [(SexpSource? a-source)
+    "<SexpSource>"]
+   [(ModuleSource? a-source)
+    (format "<ModuleSource ~a>"
+            (ModuleSource-path a-source))]))
+
+
+
 (define-struct: Configuration
   ([wrap-source : (Source -> Source)]
    [should-follow-children? : (Source -> Boolean)]
@@ -38,10 +55,7 @@
                             (U Expression #f)
                             (Listof Statement)
                             -> Void)]
-   [after-module-statements : (Source
-                               (U Expression #f)
-                               (Listof Statement)
-                               -> Void)]
+   [after-module-statements : (Source -> Void)]
    [after-last : (-> Void)])
   #:mutable)
 
@@ -53,7 +67,7 @@
      (when (and ast (expression-module-path ast))
        (printf "debug build configuration: visiting ~s\n"
                (expression-module-path ast))))
-   (lambda (src ast stmt)
+   (lambda (src)
      (void))
    (lambda ()
      (void))))

@@ -5,6 +5,10 @@
          "utilities/random.rkt"
          "utilities/string.rkt")
 
+; In the process of introducing radio buttons.
+; Buttons are now showable / hideable
+; TODO: Update the answer area after new-problem! is called.
+
 ;;; STATUS:
 ;  Missing
 ;    - Menu with all exercises
@@ -105,10 +109,20 @@
     (error "There are only 3 answer labels."))
   (call-method ($ @stringify{#answer_input_label_@|n|}) "show"))
 
+(define (show-multiple-choice-radio-button n)
+  (unless (<= 0 n 4)
+    (error "There are only 5 radio buttons."))
+  (call-method ($ @stringify{#mc@|n|}) "show")
+  (call-method ($ @stringify{#mc@|n|_val}) "show"))
+
 (define (get-answer-field n)
   (let ([v (call-method ($ (format "#answer_input_~a" n)) "val")])
     (cond [(not (string? v)) #f]
           [else v])))
+
+(define (get-multiple-choice)
+  ; Note: This relies on the the "name" attributes in the html
+  (string->number (call-method ($ ":checked") "val")))
 
 (define (clear-answer-input)
   (define (clear n)
@@ -124,9 +138,14 @@
 
 (define (hide-answer-inputs)
   (define (hide n)
-    ; (alert @stringify{#answer_input_@|n|})
     (call-method ($ @stringify{#answer_input_@|n|}) "hide")) 
   (for-each hide '(1 2 3)))
+
+(define (hide-multiple-choice-radio-buttons)
+  (define (hide n)
+    (call-method ($ @stringify{#mc@|n|}) "hide")
+    (call-method ($ @stringify{#mc@|n|_val}) "hide")) 
+  (for-each hide '(0 1 2 3 4)))
 
 (define (hide-answer-inputs-and-labels)
   (hide-answer-labels)
@@ -138,6 +157,10 @@
 
 (define (change-answer-button-text str)
   (call-method ($ "#answer_button") "val" str))
+
+(define (change-multiple-choice-text n str)
+  (call-method ($ @stringify{#mc@|n|_val}) "html" 
+               (string-append str "<br/>")))
 
 (define (face state)
   (call-method ($ "#happy") "css" "display" 
@@ -311,6 +334,12 @@
                     <div><div id='answer_input_label_1'>a</div><input id='answer_input_1' type='text' value='7' /></div>
                     <div><div id='answer_input_label_2'>b</div><input id='answer_input_2' type='text' value='8' /></div>
                     <div><div id='answer_input_label_3'>c</div><input id='answer_input_3' type='text' value='9' /></div>
+                    <div><input id="mc0" type="radio" name="mc" value="0" checked=""/> <span id="mc0_val">Foo0<br/></span>
+                         <input id="mc1" type="radio" name="mc" value="1"/>            <span id="mc1_val">Foo1<br/></span>
+                         <input id="mc2" type="radio" name="mc" value="2"/>            <span id="mc2_val">Foo2<br/></span>
+                         <input id="mc3" type="radio" name="mc" value="3"/>            <span id="mc3_val">Foo3<br/></span>
+                         <input id="mc4" type="radio" name="mc" value="4"/>            <span id="mc4_val">Foo4<br/></span>
+                    </div>
                     <input id='answer_button' type='button' onclick='@(call-plt-thunk 'on-answer-button)' value='Check Answer'/>
                     <div><img id='sad' style='display: none;' src='../pics/face-sad.gif'/></div>
                     <div><img id='happy' style='display: none;' src='../pics/face-happy.gif'/></div>
@@ -346,18 +375,100 @@
    (lambda () 
      (for-each show-answer-field '(1 2 3))
      (for-each show-answer-label '(1 2 3)))
-   (lambda () (map (lambda (n)
-                     (string->number
-                      (string-trim-both
-                       (get-answer-field n))))
-                   '(1 2 3)))))
+   (lambda () 
+     (map (lambda (n)
+            (string->number
+             (string-trim-both
+              (get-answer-field n))))
+          '(1 2 3)))))
+
+(define (insert-at i x xs)
+  (if (zero? i) 
+      (cons x xs)
+      (cons (car xs)
+            (insert-at (- i 1) x (cdr xs)))))
+
+(define (multiple-choice-answer generate-correct-choice generate-wrong-choices)
+  (define (shuffle xs)
+    (define (loop xs ys)
+      (if (null? xs)
+          ys
+          (loop (cdr xs)
+                (insert-at (random (+ (length ys) 1)) (car xs) ys))))
+    (loop xs '()))
+  (let* ([correct-index "uninialized"]
+         [choices "uninialized"]
+         [wrong-choices "uninialized"])
+    (let ()
+      (make-answer
+       @stringify{ <foo>...</foo> }
+       @stringify{ {foo: bar;} }
+       (lambda ()
+         (set! wrong-choices (generate-wrong-choices))
+         (let ([indices (build-list (+ 1 (length wrong-choices)) values)])
+           (set! correct-index (random (length wrong-choices)))
+           (set! choices (insert-at correct-index (generate-correct-choice) (shuffle wrong-choices)))
+           (for-each (lambda (i c)
+                       (show-multiple-choice-radio-button i)
+                       (change-multiple-choice-text i (list-ref choices i)))
+                     indices choices)
+           (run-mathjax)
+           (void)))
+       (lambda ()
+         (= correct-index (get-multiple-choice)))))))
+
 ;;
 ;;; EXERCISES
 ;;;
 
+(define (antiderivative-of-power-exercise)
+  (define exercises
+    ; f F list-of-wrong-choices
+    '(("1"      "x"                ("0"    "2x"    "\\frac{1}{2}x"   "\\frac{1}{2}x^2"))
+      ("x"      "\\frac{1}{2}x^2"  ("1"    "x^2"   "\\frac{1}{2}x"   "\\frac{1}{2}x^1"))
+      ("x^2"    "\\frac{1}{3}x^3"  ("2x"   "x^3"   "\\frac{1}{2}x^2" "\\frac{1}{3}x^2"))
+      ("x^3"    "\\frac{1}{4}x^4"  ("3x^2" "x^4"   "\\frac{1}{3}x^3" "\\frac{1}{4}x^3"))
+      ("x^4"    "\\frac{1}{5}x^5"  ("4x^3" "x^5"   "\\frac{1}{4}x^4" "\\frac{1}{5}x^4"))
+      ("x^5"    "\\frac{1}{6}x^6"  ("5x^4" "x^6"   "\\frac{1}{5}x^5" "\\frac{1}{6}x^5"))
+      ("x^6"    "\\frac{1}{7}x^7"  ("6x^5" "x^7"   "\\frac{1}{6}x^6" "\\frac{1}{7}x^6"))
+      ("x^{-2}" "-x^{-1}=\\frac{-1}{x}"  ("x^{-1}=\\frac{1}{x}" "\\frac{1}{-3}x^{-3}" "x^{-1}"  "-2x"))
+      ("x^{-3}" "\\frac{-1}{2}x^{-2}"  ("\\frac{1}{-4}x^{-4}=\\frac{-4}{x^4}" 
+                                        "\\frac{1}{-3}x^{-3}=\\frac{-1}{3x^{-3}}" 
+                                        "-3x^{-2}"  "-3x^{-4}"))
+      ("x^{-1} = \\frac{1}{x}"  "\\ln(x)"  ("\\log(x)" "\\frac{1}{-2}x^{-2}" "x^{-2}" "1"))))
+  
+  (define f "uninitialized")
+  (define F "uninitialized")
+  (define wrongs "uninitialized")
+  
+  (define (new-problem!)
+    (let ([ex (list-ref exercises (random (length exercises)))])
+      (set! f (car ex))
+      (set! F (cadr ex))
+      (set! wrongs (caddr ex))))
+  
+  (define (problem-description)
+    @stringify{<div>What is the antiderivative of various powers.</div>
+               <div> $$@f  ?$$ </div>})
+  
+  (define (hints)
+    (list @stringify{The antiderivative of $@|f|$ is $@|F|$}))
+  
+  (define (check-answer ans)
+    ans)
+  
+  (define ($wrap str)
+    (string-append "$" str "$"))
+  
+  (new-problem!)
+  (make-exercise "Antideriviative" 
+                 "Antiderivatives of powers."
+                 new-problem! problem-description hints check-answer 
+                 (multiple-choice-answer (λ() ($wrap F)) (λ () (map $wrap wrongs)))))
+
 (define (addition-exercise)
   ; The exercises are of the form x+y where x and y are small integers.
-  ; The stuedent must answer correctly, before a new problem is generated.
+  ; The student must answer correctly, before a new problem is generated.
   (define x 0)
   (define y 0)
   
@@ -477,7 +588,8 @@
   (new-problem!)
   (make-exercise "Square of binomial" 
                  "Square a binomial."
-                 new-problem! problem-description hints check-answer three-number-answer))
+                 new-problem! problem-description hints check-answer 
+                 three-number-answer))
 
 (define (combine-exercises title summary . exercises)
   ; combine a number of exercises into 1
@@ -503,7 +615,9 @@
 
 (define current-exercise 
   #;(power-all-kinds-exercise)
-  (squaring-binomial-exercise))
+  ;(squaring-binomial-exercise)
+  (antiderivative-of-power-exercise)
+  )
 
 
 ;;; START
@@ -513,6 +627,7 @@
       (generate-body)
       (update-exercise-title)
       (hide-answer-inputs-and-labels)
+      (hide-multiple-choice-radio-buttons)
       (on-answer-button)
       (clear-answer-input)
       (hide-answer-inputs-and-labels)

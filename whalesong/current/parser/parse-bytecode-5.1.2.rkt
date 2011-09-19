@@ -13,7 +13,6 @@
 
    ;; Parsing Racket 5.1.2 bytecode structures into our own structures.
    (require "typed-module-path.rkt"
-            "lam-entry-gensym.rkt"
             "path-rewriter.rkt"
             "../compiler/expression-structs.rkt"
             "../compiler/lexical-structs.rkt"
@@ -26,8 +25,7 @@
             racket/list)
 
 
-   (provide parse-bytecode
-            reset-lam-label-counter!/unit-testing)
+   (provide parse-bytecode)
 
 
 
@@ -144,8 +142,8 @@
                                                   base]
                                                  [else
                                                   (error 'parse-bytecode)])])
-           (parse-bytecode
-            (open-input-bytes (get-module-bytecode normal-path)))))]    
+           (define module-bytecode (get-module-bytecode normal-path))
+           (parse-bytecode (open-input-bytes module-bytecode))))]    
       [else
        (error 'parse-bytecode "Don't know how to parse from ~e" in)]))
 
@@ -465,7 +463,9 @@
 
 
 
-
+   (define (make-lam-label)
+     (make-label 'lamEntry))
+   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
    (define (parse-expr expr)

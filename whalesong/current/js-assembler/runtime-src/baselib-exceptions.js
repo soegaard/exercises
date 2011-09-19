@@ -9,23 +9,14 @@
 
 
 
-    // Error type exports
-    var InternalError = function(val, contMarks) {
-        this.val = val;
-        this.contMarks = contMarks || false;
+    var RacketError = function(message, racketError) {
+        Error.call(this, message);
+        this.message = message;
+        this.racketError = racketError;
     };
+    RacketError.prototype = baselib.heir(Error.prototype);
+    var isRacketError = baselib.makeClassPredicate(RacketError);
 
-
-    var SchemeError = function(val) {
-        this.val = val;
-    };
-
-
-    var IncompleteExn = function(constructor, msg, otherArgs) {
-        this.constructor = constructor;
-        this.msg = msg;
-        this.otherArgs = otherArgs;
-    };
 
 
     // (define-struct exn (message continuation-mark-set))
@@ -47,6 +38,7 @@
     var ExnFailContractArity = baselib.structs.makeStructureType(
         'exn:fail:contract:arity', ExnFailContract, 0, 0, false, false);
 
+    // exn:fail:contract (id)
     var ExnFailContractVariable = baselib.structs.makeStructureType(
         'exn:fail:contract:variable', ExnFailContract, 1, 0, false, false);
 
@@ -71,8 +63,10 @@
     // value to allow integration with systems that don't recognize Racket error 
     // structures.
     var raise = function(MACHINE, e) { 
-        if (Exn.predicate(e)) {
-            e.message = Exn.accessor(e, 0);
+        if (isRacketError(e) && Exn.predicate(e.racketError)) {
+            e.message = Exn.accessor(e.racketError, 0);
+        } else if (Exn.predicate(e)) {
+            e = new RacketError(Exn.accessor(e, 0), e);
         }
 
         if (typeof(window.console) !== 'undefined' &&
@@ -88,11 +82,12 @@
 
 
     var raiseUnboundToplevelError = function(MACHINE, name) {
+        var message = baselib.format.format("Not bound: ~a", [name]);
+        var contMarks = MACHINE.captureContinuationMarks();
         raise(MACHINE, 
-              new Error(
-                  baselib.format.format(
-                      "Not bound: ~a",
-                      [name]))); 
+              ExnFailContractVariable.constructor(message, 
+                                                  contMarks, 
+                                                  baselib.symbols.makeSymbol(name))); 
     };
 
 
@@ -101,70 +96,72 @@
                                           expectedTypeName,
                                           argumentOffset,
                                           actualValue) {
+        var message;
+        var contMarks = MACHINE.captureContinuationMarks();
         if (argumentOffset !== undefined) {
-            raise(MACHINE,
-                  new Error(
-                      baselib.format.format(
+            message = baselib.format.format(
                           "~a: expected ~a as argument ~e but received ~e",
                           [callerName,
                            expectedTypeName,
                            (argumentOffset + 1),
-                           actualValue])));
+                           actualValue]);
+            raise(MACHINE, ExnFailContract.constructor(message, contMarks));
         } else {
-            raise(MACHINE,
-                  new Error(
-                      baselib.format.format(
+            message = baselib.format.format(
                           "~a: expected ~a but received ~e",
                           [callerName,
                            expectedTypeName,
-                           actualValue])));
+                           actualValue]);
+            raise(MACHINE, ExnFailContract.constructor(message, contMarks));
         }
     };
 
     var raiseContextExpectedValuesError = function(MACHINE, expected) {
-        raise(MACHINE, 
-              new Error(baselib.format.format(
-                  "expected ~e values, received ~e values",
-                  [expected, MACHINE.argcount])));
+        var message = baselib.format.format("expected ~e values, received ~e values",
+                                            [expected, MACHINE.a]);
+        var contMarks = MACHINE.captureContinuationMarks();
+        raise(MACHINE, ExnFailContract.constructor(message, contMarks));
     };
 
-    var raiseArityMismatchError = function(MACHINE, proc, expected, received) {
-        raise(MACHINE, 
-              new Error(baselib.format.format(
-                  "~a: expected ~e value(s), received ~e value(s)",
-                  [proc.displayName,
-                   expected,
-                   received])));
+    var raiseArityMismatchError = function(MACHINE, proc, received) {
+        var message = baselib.format.format("~a: expected ~e value(s), received ~e value(s)",
+                                            [proc.displayName,
+                                             proc.racketArity,
+                                             received]);
+        var contMarks = MACHINE.captureContinuationMarks();
+        raise(MACHINE, ExnFailContractArity.constructor(message, contMarks));
     };
 
     var raiseOperatorApplicationError = function(MACHINE, operator) {
+        var message = baselib.format.format("not a procedure: ~e",
+                                            [operator]);
+        var contMarks = MACHINE.captureContinuationMarks();
         raise(MACHINE, 
-              new Error(
-                  baselib.format.format(
-                      "not a procedure: ~e",
-                      [operator])));
+              ExnFailContract.constructor(message, contMarks));
     };
 
     var raiseOperatorIsNotClosure = function(MACHINE, operator) {
+        var message = baselib.format.format("not a closure: ~e",
+                                            [operator]);
+        var contMarks = MACHINE.captureContinuationMarks();
         raise(MACHINE,
-              new Error(
-                  baselib.format.format(
-                      "not a closure: ~e",
-                      [operator])));
+              ExnFailContract.constructor(message, contMarks));
     };
 
     var raiseOperatorIsNotPrimitiveProcedure = function(MACHINE, operator) {
+        var message = baselib.format.format("not a primitive procedure: ~e",
+                                            [operator]);
+        var contMarks = MACHINE.captureContinuationMarks();
         raise(MACHINE,
-              new Error(
-                  baselib.format.format(
-                      "not a primitive procedure: ~e",
-                      [operator])));
+              ExnFailContract.constructor(message, contMarks));
     };
 
 
     var raiseUnimplementedPrimitiveError = function(MACHINE, name) {
-        raise(MACHINE, 
-              new Error("unimplemented kernel procedure: " + name));
+        var message = "unimplemented kernel procedure: " + name;
+        var contMarks = MACHINE.captureContinuationMarks();
+        raise(MACHINE,
+              ExnFailContract.constructor(message, contMarks));
     };
 
 
@@ -178,19 +175,19 @@
     //////////////////////////////////////////////////////////////////////
     // Exports
 
-    exceptions.InternalError = InternalError;
-    exceptions.internalError = function(v, contMarks) { return new InternalError(v, contMarks); };
-    exceptions.isInternalError = function(x) { return x instanceof InternalError; };
 
 
-    exceptions.SchemeError = SchemeError;
-    exceptions.schemeError = function(v) { return new SchemeError(v); };
-    exceptions.isSchemeError = function(v) { return v instanceof SchemeError; };
+    exceptions.RacketError = RacketError;
+    exceptions.isRacketError = isRacketError;
 
 
-    exceptions.IncompleteExn = IncompleteExn;
-    exceptions.makeIncompleteExn = function(constructor, msg, args) { return new IncompleteExn(constructor, msg, args); };
-    exceptions.isIncompleteExn = function(x) { return x instanceof IncompleteExn; };
+    // exceptions.InternalError = InternalError;
+    // exceptions.internalError = function(v, contMarks) { return new InternalError(v, contMarks); };
+    // exceptions.isInternalError = function(x) { return x instanceof InternalError; };
+
+    // exceptions.IncompleteExn = IncompleteExn;
+    // exceptions.makeIncompleteExn = function(constructor, msg, args) { return new IncompleteExn(constructor, msg, args); };
+    // exceptions.isIncompleteExn = function(x) { return x instanceof IncompleteExn; };
 
 
     exceptions.Exn = Exn;

@@ -1,17 +1,18 @@
 #!/usr/bin/env racket
 #lang racket/base
 
-(require racket/list
-         racket/string
-         racket/match
-         racket/file
-         "make/make-structs.rkt"
-         "js-assembler/package.rkt"
-         "resource/structs.rkt"
-         "private/command.rkt"
-         "logger.rkt"
+(require "private/command.rkt"
          "parameters.rkt"
-         raco/command-name)
+         "whalesong-helpers.rkt"
+         profile profile/render-text
+         (for-syntax racket/base))
+
+;; Command line for running Whalesong.
+
+
+;; TODO: we may want to adopt this as a raco command, as described in:
+;;
+;;     http://docs.racket-lang.org/raco/command.html
 
 
 ;; Usage:
@@ -30,126 +31,100 @@
 ;;
 ;;     $ whalesong get-javascript main-module-name.rkt
 
+(define as-standalone-html? (make-parameter #f))
+(define with-profiling? (make-parameter #f))
 
+(define-syntax (maybe-with-profiling stx)
+  (syntax-case stx ()
+    [(_ expr)
+     (syntax/loc stx
+       (if (with-profiling?)
+           (profile expr
+                    #:threads #t
+                    #:delay 0.01
+                    #:render (lambda (profile)
+                               (render profile
+                                       #:truncate-source 500)))
 
-(define current-verbose? (make-parameter #f))
-(define current-resource-dir (make-parameter
-                              (build-path (current-directory) "res")))
-(define current-write-resources? (make-parameter #t))
+           expr))]))
 
 
 (define (at-toplevel)
   (svn-style-command-line
-   #:program "whalesong"  ; (short-program+command-name)
+   #:program "whalesong"
    #:argv (current-command-line-arguments)
    "The Whalesong command-line tool for compiling Racket to JavaScript"
-   ["build" "build a standalone xhtml package" 
-            "Builds a Racket program and its required dependencies into a standalone .xhtml file."
+   ["build" "build a standalone html and javascript package" 
+            "Builds a Racket program and its required dependencies into a .html and .js file."
             #:once-each
             [("-v" "--verbose")
              ("Display verbose messages.")
              (current-verbose? #t)]
+            [("--debug-show-timings")
+             ("Display debug messages about compilation time.")
+             (current-timing-port (current-output-port))]
+            [("--enable-profiling")
+             ("Enable profiling to standard output")
+             (with-profiling? #t)]
             [("--compress-javascript")
              ("Compress JavaScript with Google Closure (requires Java)")
              (current-compress-javascript? #t)]
-            
+            [("--split-modules")
+             ("Write one file per module")
+             (current-one-module-per-file? #t)]
+            [("--dest-dir")
+             dest-dir
+             ("Set destination directory (default: current-directory)")
+             (current-output-dir dest-dir)]
+            [("--as-standalone-xhtml")
+             ("Write single standalone xhtml file")
+             (as-standalone-html? #t)]
             #:args (path)
-            (do-the-build path)]
+
+            (maybe-with-profiling
+             (if (as-standalone-html?)
+                 (build-standalone-xhtml path)
+                 (build-html-and-javascript path)))]
+   
    ["get-runtime" "print the runtime library to standard output"
                   "Prints the runtime JavaScript library that's used by Whalesong programs."
                   #:once-each
                   [("-v" "--verbose")
                    ("Display verbose messages.")
                    (current-verbose? #t)]
+                  [("--debug-show-timings")
+                   ("Display debug messages about compilation time.")
+                   (current-timing-port (current-output-port))]
+                  [("--enable-profiling")
+                   ("Enable profiling to standard output")
+                   (with-profiling? #t)]
                   [("--compress-javascript")
                    ("Compress JavaScript with Google Closure (requires Java)")
                    (current-compress-javascript? #t)]
-
+                  
                   #:args ()
-                  (print-the-runtime)]
+                  (maybe-with-profiling
+                   (print-the-runtime))]
    ["get-javascript" "Gets just the JavaScript code and prints it to standard output"
                      "Builds a racket program into JavaScript.  The outputted file depends on the runtime."
                      #:once-each
                      [("-v" "--verbose")
                       ("Display verbose messages.")
                       (current-verbose? #t)]
-
+                     [("--debug-show-timings")
+                      ("Display debug messages about compilation time.")
+                      (current-timing-port (current-output-port))]
+                     [("--enable-profiling")
+                      ("Enable profiling to standard output")
+                      (with-profiling? #t)]
                      [("--compress-javascript")
                       ("Compress JavaScript with Google Closure (requires Java)")
                       (current-compress-javascript? #t)]
-
-            
+                     
+                     
                      #:args (file)
-                     (get-javascript-code file)]))
-   
-   
+                     (maybe-with-profiling
+                      (get-javascript-code file))]))
 
 
-(define (turn-on-logger!)
-  (void (thread (lambda ()
-                  (let ([receiver
-                         (make-log-receiver whalesong-logger
-                                            (if (current-verbose?)
-                                                'debug
-                                                'info))])
-                    (let loop ()
-                      (let ([msg (sync receiver)])
-                        (match msg
-                          [(vector level msg data)
-                           (fprintf (current-error-port)"~a: ~a\n" level msg)
-                           (flush-output (current-error-port))]))
-                      (loop)))))))
-                    
-
-
-
-   
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-(define (do-the-build f)
-  (turn-on-logger!)
-  (let-values ([(base filename dir?)
-                (split-path f)])
-    (let ([output-filename
-           (build-path
-            (regexp-replace #rx"[.](rkt|ss)$"
-                            (path->string filename)
-                            ".xhtml"))])
-      (parameterize ([current-on-resource
-                      (lambda (r)
-                        (make-directory* (current-resource-dir))
-                        (log-info (format "Writing resource ~s" (resource-path r)))
-                        (when (file-exists?  (build-path (current-resource-dir)
-                                               (resource-key r)))
-                          (delete-file (build-path (current-resource-dir)
-                                                   (resource-key r))))
-                        (copy-file (resource-path r) 
-                                   (build-path (current-resource-dir)
-                                               (resource-key r))))])
-        (call-with-output-file* output-filename
-                                (lambda (op)
-                                  (package-standalone-xhtml
-                                   (make-ModuleSource (build-path f))
-                                   op))
-                                #:exists 'replace)))))
-
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define (print-the-runtime)
-  (turn-on-logger!)
-  (display (get-runtime) (current-output-port)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define (get-javascript-code filename)
-  (turn-on-logger!)
-  (display (get-standalone-code
-            (make-ModuleSource (build-path filename)))
-           (current-output-port)))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (at-toplevel)

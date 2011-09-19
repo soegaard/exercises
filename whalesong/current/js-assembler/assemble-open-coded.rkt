@@ -4,6 +4,7 @@
          "../compiler/il-structs.rkt"
          "../compiler/lexical-structs.rkt"
          "../compiler/kernel-primitives.rkt"
+         "assemble-structs.rkt"
          racket/string
          racket/list
          typed/rackunit)
@@ -12,10 +13,12 @@
 
 
 
-(: open-code-kernel-primitive-procedure (CallKernelPrimitiveProcedure -> String))
-(define (open-code-kernel-primitive-procedure op)
+(: open-code-kernel-primitive-procedure (CallKernelPrimitiveProcedure Blockht -> String))
+(define (open-code-kernel-primitive-procedure op blockht)
   (let*: ([operator : KernelPrimitiveName/Inline (CallKernelPrimitiveProcedure-operator op)]
-          [operands : (Listof String) (map assemble-oparg (CallKernelPrimitiveProcedure-operands op))]
+          [operands : (Listof String) (map (lambda: ([op : OpArg])
+                                                    (assemble-oparg op blockht))
+                                           (CallKernelPrimitiveProcedure-operands op))]
           [checked-operands : (Listof String)
                             (map (lambda: ([dom : OperandDomain]
 					   [pos : Natural]
@@ -70,7 +73,7 @@
            (assemble-boolean-chain "plt.baselib.numbers.greaterThanOrEqual" checked-operands)]
           
           [(cons)
-           (format "RUNTIME.makePair(~a, ~a)"
+           (format "RT.makePair(~a,~a)"
                    (first checked-operands)
                    (second checked-operands))]
 
@@ -85,21 +88,21 @@
              (assemble-listof-assembled-values checked-operands))]
 
           [(list?)
-           (format "RUNTIME.isList(~a)"
+           (format "RT.isList(~a)"
                    (first checked-operands))]
           
           [(pair?)
-           (format "RUNTIME.isPair(~a)"
+           (format "RT.isPair(~a)"
                    (first checked-operands))]
           
           [(null?)
-           (format "(~a === RUNTIME.NULL)" (first checked-operands))]
+           (format "(~a===RT.NULL)" (first checked-operands))]
 
           [(not)
-           (format "(~a === false)" (first checked-operands))]
+           (format "(~a===false)" (first checked-operands))]
           
           [(eq?)
-           (format "(~a === ~a)" (first checked-operands) (second checked-operands))])))
+           (format "(~a===~a)" (first checked-operands) (second checked-operands))])))
 
 
 
@@ -151,28 +154,24 @@
     [(eq? domain 'any)
      operand-string]
     [else
-     (let: ([test-string : String
+     (let: ([predicate : String
                          (case domain
                            [(number)
-                            (format "RUNTIME.isNumber(~a)"
-                                    operand-string)]             
+                            (format "RT.isNumber")]
                            [(string)
-                            (format "(typeof(~a) === 'string')"
-                                    operand-string)]
+                            (format "RT.isString")]
                            [(list)
-                            (format "RUNTIME.isList(~a)" operand-string)]
+                            (format "RT.isList")]
                            [(pair)
-                            (format "RUNTIME.isPair(~a)" operand-string)]
+                            (format "RT.isPair")]
                            [(box)
-                            (format "(typeof(~a) === 'object' && (~a).length === 1)"
-                                    operand-string operand-string)])])
-           (format "((~a) ? (~a) : RUNTIME.raiseArgumentTypeError(MACHINE, ~s, ~s, ~s, ~a))"
-                   test-string
-                   operand-string
-		   (symbol->string caller)
+                            (format "RT.isBox")])])
+           (format "RT.testArgument(M,~s,~a,~a,~a,~s)"
                    (symbol->string domain)
+                   predicate
+                   operand-string
                    pos
-                   operand-string))]))
+                   (symbol->string caller)))]))
 
 
 (: maybe-typecheck-operand (Symbol OperandDomain Natural String Boolean -> String))

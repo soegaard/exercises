@@ -2,10 +2,11 @@
 
 (require racket/contract
          racket/runtime-path
+         racket/gui/base
          syntax/modresolve)
 
 
-(provide/contract [query (module-path? . -> . string?)]
+(provide/contract [query (module-path? . -> . (listof string?))]
                   [has-javascript-implementation? (module-path? . -> . boolean?)]
                   
                   [redirected? (path? . -> . boolean?)]
@@ -15,7 +16,7 @@
                   [lookup-module-requires (path? . -> . (listof path?))])
 
 (define-runtime-path record.rkt "record.rkt")
-(define ns (make-base-empty-namespace))
+(define ns (make-gui-namespace))
 
 ;; query: module-path -> string?
 ;; Given a module, see if it's implemented via Javascript.

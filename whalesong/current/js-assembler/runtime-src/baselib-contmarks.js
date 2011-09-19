@@ -1,3 +1,4 @@
+/*global plt*/
 /*jslint browser: true, unparam: true, vars: true, white: true, maxerr: 50, indent: 4 */
 
 // Continuation marks
@@ -7,8 +8,8 @@
     baselib.contmarks = exports;
 
 
-    var ContinuationMarkSet = function(dict) {
-        this.dict = dict;
+    var ContinuationMarkSet = function(kvlists) {
+        this.kvlists = kvlists;
     };
 
     ContinuationMarkSet.prototype.toDomNode = function(cache) {
@@ -26,11 +27,50 @@
     };
 
     ContinuationMarkSet.prototype.ref = function(key) {
-        if ( this.dict.containsKey(key) ) {
-	    return this.dict.get(key);
+        var i, j;
+        var result = [];
+        var kvlist;
+        for (i = 0; i < this.kvlists.length; i++) {
+            kvlist = this.kvlists[i];
+            for (j = 0; j < kvlist.length; j++) {
+                if (baselib.equality.equals(kvlist[j][0], key)) {
+                    result.push(kvlist[j][1]);
+                }
+            }
         }
-        return [];
+        return baselib.lists.makeList.apply(null, result);
     };
+
+
+
+    // Returns an approximate stack trace.
+    // getContext: MACHINE -> (arrayof (U Procedure (Vector source line column position span)))
+    ContinuationMarkSet.prototype.getContext = function(MACHINE) {
+        var i, j;
+        var result = [];
+        var kvlist;
+
+        var tracedAppKey = plt.runtime.getTracedAppKey(MACHINE);
+        var tracedCalleeKey = plt.runtime.getTracedCalleeKey(MACHINE);
+        var proc, locationVector;
+
+        for (i = 0; i < this.kvlists.length; i++) {
+            kvlist = this.kvlists[i];
+            for (j = 0; j < kvlist.length; j++) {
+                if (kvlist[j][0] === tracedAppKey) {
+                    locationVector = kvlist[j][1];
+                    result.push(locationVector);
+                } else if (kvlist[j][0] === tracedCalleeKey) {
+                    proc = kvlist[j][1];
+                    if (proc !== null) {
+                        result.push(proc);
+                    }
+                }
+            }
+        }
+        return result;
+    };
+
 
 
 

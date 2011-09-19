@@ -3,6 +3,7 @@
          "../compiler/il-structs.rkt"
          "../compiler/lexical-structs.rkt"
          "../helpers.rkt"
+         "../parameters.rkt"
          racket/list)
 
 (provide collect-general-jump-targets
@@ -111,8 +112,8 @@
        (list (MakeCompiledProcedure-label op))]
       [(MakeCompiledProcedureShell? op)
        (list (MakeCompiledProcedureShell-label op))]
-      [(ApplyPrimitiveProcedure? op)
-       empty]
+      ;; [(ApplyPrimitiveProcedure? op)
+      ;;  empty]
       [(CaptureEnvironment? op)
        empty]
       [(CaptureControl? op)
@@ -128,48 +129,27 @@
       [(InstallModuleEntry!? op)
        (list (InstallModuleEntry!-entry-point op))]
       [else
-       empty]
-      ;; currently written this way because I'm hitting some bad type-checking behavior.
-      #;([(CheckToplevelBound!? op)
-          empty]
-         [(CheckClosureArity!? op)
-          empty]
-         [(CheckPrimitiveArity!? op)
-          empty]
-         [(ExtendEnvironment/Prefix!? op)
-          empty]
-         [(InstallClosureValues!? op)
-          empty]
-         [(RestoreEnvironment!? op)
-          empty]
-         [(RestoreControl!? op)
-          empty]
-         [(SetFrameCallee!? op)
-          empty]
-         [(SpliceListIntoStack!? op)
-          empty]
-         [(UnspliceRestFromStack!? op)
-          empty]
-         [(FixClosureShellMap!? op)
-          empty]
-         [(InstallContinuationMarkEntry!? op)
-          empty]
-         [(RaiseContextExpectedValuesError!? op)
-          empty]
-         [(RaiseArityMismatchError!? op)
-          empty]
-         [(RaiseOperatorApplicationError!? op)
-          empty])))
+       empty]))
   
-  
-  (unique/eq?
-   (let: loop : (Listof Symbol) ([stmts : (Listof Statement) stmts])
-     (cond [(empty? stmts)
-            empty]
-           [else
-            (let: ([stmt : Statement (first stmts)])
-              (append (collect-statement stmt)
-                      (loop (rest stmts))))]))))
+  (: start-time Real)
+  (define start-time (current-inexact-milliseconds))
+
+  (: result (Listof Symbol))
+  (define result
+    (unique/eq?
+     (let: loop : (Listof Symbol) ([stmts : (Listof Statement) stmts])
+       (cond [(empty? stmts)
+              empty]
+             [else
+              (let: ([stmt : Statement (first stmts)])
+                (append (collect-statement stmt)
+                        (loop (rest stmts))))]))))
+
+  (: end-time Real)
+  (define end-time (current-inexact-milliseconds))
+  (fprintf (current-timing-port) "  collect-general-jump-targets: ~a milliseconds\n" (- end-time start-time))
+  result)
+
 
 
 
@@ -278,8 +258,8 @@
        (list (MakeCompiledProcedure-label op))]
       [(MakeCompiledProcedureShell? op)
        (list (MakeCompiledProcedureShell-label op))]
-      [(ApplyPrimitiveProcedure? op)
-       empty]
+      ;; [(ApplyPrimitiveProcedure? op)
+      ;;  empty]
       [(CaptureEnvironment? op)
        empty]
       [(CaptureControl? op)
@@ -299,7 +279,7 @@
       ;; currently written this way because I'm hitting some bad type-checking behavior.
       #;([(CheckToplevelBound!? op)
           empty]
-         [(CheckClosureArity!? op)
+         [(CheckClosureAndArity!? op)
           empty]
          [(CheckPrimitiveArity!? op)
           empty]

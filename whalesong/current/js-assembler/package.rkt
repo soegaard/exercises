@@ -14,24 +14,31 @@
          racket/list
          racket/promise
          racket/set
+         racket/path
+         racket/string
+         racket/port
          (prefix-in query: "../lang/js/query.rkt")
          (prefix-in resource-query: "../resource/query.rkt")
-         (planet dyoo/closure-compile:1:1)
          (prefix-in runtime: "get-runtime.rkt")
          (prefix-in racket: racket/base))
+
+;; There is a dynamic require for (planet dyoo/closure-compile) that's done
+;; if compression is turned on.
 
 
 ;; TODO: put proper contracts here
 
 
 (provide package
-         package-anonymous
+         ;;package-anonymous
          package-standalone-xhtml
+         get-inert-code
          get-standalone-code
          write-standalone-code
          get-runtime
          write-runtime
-         current-on-resource)
+         current-on-resource
+         get-html-template)
 
 
 
@@ -49,6 +56,13 @@
                     (void))))
 
 
+(define-struct cached-entry (real-path ;; path to a module. 
+                             whalesong-version ;; string
+                             md5   ;; md5 of the original source in real-path
+                             bytes)
+  #:transparent) ;; bytes
+
+
 
 
 (define-struct js-impl (name ;; symbol
@@ -63,14 +77,14 @@
 
 
 
-(define (package-anonymous source-code
-                           #:should-follow-children? should-follow?
-                           #:output-port op)
-  (fprintf op "(function() {\n")
-  (package source-code
-           #:should-follow-children? should-follow?
-           #:output-port op)
-  (fprintf op " return invoke; })\n"))
+;; (define (package-anonymous source-code
+;;                            #:should-follow-children? should-follow?
+;;                            #:output-port op)
+;;   (fprintf op "(function() {\n")
+;;   (package source-code
+;;            #:should-follow-children? should-follow?
+;;            #:output-port op)
+;;   (fprintf op " return invoke; })\n"))
 
 
 
@@ -128,33 +142,38 @@
     [(MainModuleSource? src)
      (get-javascript-implementation (MainModuleSource-source src))]
     [(ModuleSource? src)
-     (let ([name (rewrite-path (ModuleSource-path src))]
-           [text (query:query `(file ,(path->string (ModuleSource-path src))))]
-           [module-requires (query:lookup-module-requires (ModuleSource-path src))]
-           [bytecode (parse-bytecode (ModuleSource-path src))])
+     (let* ([name (rewrite-path (ModuleSource-path src))]
+            [paths (query:query `(file ,(path->string (ModuleSource-path src))))]
+            [text (string-join
+                   (map (lambda (p)
+                          (call-with-input-file p port->string))
+                        paths)
+                   "\n")]
+            [module-requires (query:lookup-module-requires (ModuleSource-path src))]
+            [bytecode (parse-bytecode (ModuleSource-path src))])
        (when (not (empty? module-requires))
          (log-debug "~a requires ~a"
                     (ModuleSource-path src)
                     module-requires))
        (let ([module-body-text
               (format "
-             if(--MACHINE.callsBeforeTrampoline<0) { throw arguments.callee; }
-             var modrec = MACHINE.modules[~s];
+             if(--M.cbt<0) { throw arguments.callee; }
+             var modrec = M.modules[~s];
              var exports = {};
              modrec.isInvoked = true;
-             (function(MACHINE, RUNTIME, EXPORTS){~a})(MACHINE, plt.runtime, exports);
+             (function(MACHINE, EXPORTS){~a})(M, exports);
              ~a
              modrec.privateExports = exports;
-             return MACHINE.control.pop().label(MACHINE);"
+             return M.c.pop().label(M);"
                       (symbol->string name)
                       text
                       (get-provided-name-code bytecode))])
          
          (make-UninterpretedSource
           (format "
-MACHINE.modules[~s] =
+M.modules[~s] =
     new plt.runtime.ModuleRecord(~s,
-        function(MACHINE) {
+        function(M) {
             ~a
         });
 "
@@ -162,7 +181,8 @@ MACHINE.modules[~s] =
                   (symbol->string name)
                   (assemble-modinvokes+body module-requires module-body-text))
           
-          (map make-ModuleSource module-requires))))]
+          (map (lambda (p) (make-ModuleSource (normalize-path p)))
+               module-requires))))]
     
     
     [(SexpSource? src)
@@ -186,10 +206,10 @@ MACHINE.modules[~s] =
   (let ([name (rewrite-path (path->string path))]
         [afterName (gensym 'afterName)])
     (format "var ~a = function() { ~a };
-             if (! MACHINE.modules[~s].isInvoked) {
-                 MACHINE.modules[~s].internalInvoke(MACHINE,
+             if (! M.modules[~s].isInvoked) {
+                 M.modules[~s].internalInvoke(M,
                                             ~a,
-                                            MACHINE.params.currentErrorHandler);
+                                            M.params.currentErrorHandler);
              } else {
                  ~a();
              }"
@@ -211,12 +231,13 @@ MACHINE.modules[~s] =
 ;; following module paths of a source's dependencies.
 ;;
 ;; The generated output defines a function called 'invoke' with
-;; four arguments (MACHINE, SUCCESS, FAIL, PARAMS).  When called, it will
+;; four arguments (M, SUCCESS, FAIL, PARAMS).  When called, it will
 ;; execute the code to either run standalone expressions or
 ;; load in modules.
 (define (package source-code
                  #:should-follow-children? should-follow?
-                 #:output-port op)
+                 #:output-port op
+                 #:next-file-path (next-file-path (lambda () (error 'package))))
   (define resources (set))
   
   
@@ -232,30 +253,63 @@ MACHINE.modules[~s] =
       [else
        src]))
   
+
+  (define (maybe-with-fresh-file thunk)
+    (cond
+     [(current-one-module-per-file?)
+      (define old-port op)
+      (define temp-string (open-output-string))
+      (set! op temp-string)
+      (thunk)
+      (set! op old-port)
+      (call-with-output-file (next-file-path)
+        (lambda (op)
+          (display (compress (get-output-string temp-string)) op))
+        #:exists 'replace)]
+     [else
+      (thunk)]))
+
   
   (define (on-visit-src src ast stmts)
     ;; Record the use of resources on source module visitation...
-    (set! resources (set-union resources
-                               (list->set (source-resources src))))
-    (cond
-      [(UninterpretedSource? src)
-       (fprintf op "~a" (UninterpretedSource-datum src))]
-      [else
-       (assemble/write-invoke stmts op)
-       (fprintf op "(MACHINE, function() { ")]))
+    (set! resources (set-union resources (list->set (source-resources src))))
+
+    (maybe-with-fresh-file
+     (lambda ()
+       (fprintf op "\n// ** Visiting ~a\n" (source-name src))
+       (define start-time (current-inexact-milliseconds))
+       (cond
+        [(UninterpretedSource? src)
+         (fprintf op "(function(M) { ~a }(plt.runtime.currentMachine));" (UninterpretedSource-datum src))]
+        [else      
+         (fprintf op "(")
+         (assemble/write-invoke stmts op)
+         (fprintf op ")(plt.runtime.currentMachine,
+                     function() {
+                          if (window.console && window.console.log) {
+                              window.console.log('loaded ' + ~s);
+                          }
+                     },
+                     function(err) {
+                          if (window.console && window.console.log) {
+                              window.console.log('error: unable to load ' + ~s);
+                          }
+                     },
+                     {});"
+                  (format "~a" (source-name src))
+                  (format "~a" (source-name src)))
+         (define stop-time (current-inexact-milliseconds))
+         (fprintf (current-timing-port) "  assembly: ~s milliseconds\n" (- stop-time start-time))
+         (void)]))))
   
   
-  (define (after-visit-src src ast stmts)
-    (cond
-      [(UninterpretedSource? src)
-       (void)]
-      [else
-       (fprintf op " }, FAIL, PARAMS);")]))
+  (define (after-visit-src src)
+    (void))
   
   
   (define (on-last-src)
-    (fprintf op "plt.runtime.setReadyTrue();")
-    (fprintf op "SUCCESS();"))
+    (void))
+
   
   
   (define packaging-configuration
@@ -273,14 +327,8 @@ MACHINE.modules[~s] =
      ;; last
      on-last-src))
   
-  
-  (fprintf op "var invoke = (function(MACHINE, SUCCESS, FAIL, PARAMS) {")
-  (fprintf op "    plt.runtime.ready(function() {")
-  (fprintf op "plt.runtime.setReadyFalse();")
   (make (list (make-MainModuleSource source-code))
         packaging-configuration)
-  (fprintf op "    });");
-  (fprintf op "});\n")
   
   (for ([r resources])
     ((current-on-resource) r)))
@@ -293,7 +341,8 @@ MACHINE.modules[~s] =
   (display *header* op)
   (display (quote-cdata
             (string-append (get-runtime)
-                           (get-code source-code)
+                           (get-inert-code source-code
+                                           (lambda () (error 'package-standalone-xhtml)))
                            invoke-main-module-code)) op)
   (display *footer* op))
 
@@ -313,10 +362,10 @@ MACHINE.modules[~s] =
           ;; on
           (lambda (src ast stmts)
             (assemble/write-invoke stmts op)
-            (fprintf op "(MACHINE, function() { "))
+            (fprintf op "(M, function() { "))
           
           ;; after
-          (lambda (src ast stmts)
+          (lambda (src)
             (fprintf op " }, FAIL, PARAMS);"))
           
           ;; last
@@ -326,16 +375,18 @@ MACHINE.modules[~s] =
     (display (runtime:get-runtime) op)
     
     (newline op)
-    (fprintf op "(function(MACHINE, SUCCESS, FAIL, PARAMS) {")
+    (fprintf op "(function(M, SUCCESS, FAIL, PARAMS) {")
     (make (list only-bootstrapped-code) packaging-configuration)
     (fprintf op "})(plt.runtime.currentMachine,\nfunction(){ plt.runtime.setReadyTrue(); },\nfunction(){},\n{});\n")))
 
 
-
+(define closure-compile-ns (make-base-namespace))
 (define (compress x)
   (cond [(current-compress-javascript?)
          (log-debug "compressing javascript...")
-         (closure-compile x)]
+         (parameterize ([current-namespace closure-compile-ns])
+           (define closure-compile (dynamic-require '(planet dyoo/closure-compile) 'closure-compile))
+           (closure-compile x))]
         [else
          (log-debug "not compressing javascript...")
          x]))
@@ -373,12 +424,39 @@ EOF
   )
 
 
-;; get-code: source -> string
-(define (get-code source-code)
+;; get-html-template: (listof string) -> string
+(define (get-html-template js-files)
+  (format #<<EOF
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, width=device-width, height=device-height, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta charset="utf-8"/>
+    <title></title>
+~a
+  <script>
+  ~a
+  </script>
+  </head>
+  <body>
+  </body>
+  </html>
+EOF
+
+  (string-join (map (lambda (js)
+                      (format "  <script src='~a'></script>\n" js))
+                    js-files)
+               "")
+  invoke-main-module-code))
+
+
+;; get-inert-code: source (-> path) -> string
+(define (get-inert-code source-code next-file-path)
   (let ([buffer (open-output-string)])
     (package source-code
              #:should-follow-children? (lambda (src) #t)
-             #:output-port buffer)
+             #:output-port buffer
+             #:next-file-path next-file-path)
     (compress
      (get-output-string buffer))))
 
@@ -394,10 +472,10 @@ EOF
 
 ;; write-standalone-code: source output-port -> void
 (define (write-standalone-code source-code op)
-  (package-anonymous source-code
-                     #:should-follow-children? (lambda (src) #t)
-                     #:output-port op)
-  (fprintf op "()(plt.runtime.currentMachine, function() {}, function() {}, {});\n"))
+  (package source-code
+           #:should-follow-children? (lambda (src) #t)
+           #:output-port op))
+
 
 
 
@@ -406,36 +484,57 @@ EOF
 (define invoke-main-module-code
   #<<EOF
 var invokeMainModule = function() {
-    var MACHINE = plt.runtime.currentMachine;
-    invoke(MACHINE,
-           function() {
-                var startTime = new Date().valueOf();
-                plt.runtime.invokeMains(
-                    MACHINE,
-                    function() {
-                        // On main module invokation success:
-                        var stopTime = new Date().valueOf();                                
-                        if (console && console.log) {
-                            console.log('evaluation took ' + (stopTime - startTime) + ' milliseconds');
-                        }
-                    },
-                    function(MACHINE, e) {
-                        // On main module invokation failure
-                        if (console && console.log) {
-                            console.log(e.stack || e);
-                        }
-                        MACHINE.params.currentErrorDisplayer(
-                             MACHINE, $(plt.baselib.format.toDomNode(e.stack || e)).css('color', 'red'));
-                    })},
-           function() {
-               // On module loading failure
-               if (console && console.log) {
-                   console.log(e.stack || e);
-               }                       
-           },
-           {});
+    var M = plt.runtime.currentMachine;
+    var startTime = new Date().valueOf();
+    plt.runtime.invokeMains(
+        M,
+        function() {
+            // On main module invokation success:
+            var stopTime = new Date().valueOf();                                
+            if (window.console && window.console.log) {
+                window.console.log('evaluation took ' + (stopTime - startTime) + ' milliseconds');
+            }
+        },
+        function(M, e) {
+            var contMarkSet, context, i, appName;
+            // On main module invokation failure
+            if (window.console && window.console.log) {
+                window.console.log(e.stack || e);
+            }
+            
+            M.params.currentErrorDisplayer(
+                M, $(plt.baselib.format.toDomNode(e.stack || e)).css('color', 'red'));
+
+            if (e.hasOwnProperty('racketError') &&
+                plt.baselib.exceptions.isExn(e.racketError)) {
+                contMarkSet = plt.baselib.exceptions.exnContMarks(e.racketError);
+                if (contMarkSet) {
+                    context = contMarkSet.getContext(M);
+                    for (i = 0; i < context.length; i++) {
+                        if (plt.runtime.isVector(context[i])) {
+                            M.params.currentErrorDisplayer(
+                                M,
+                                $('<div/>').text('  at ' + context[i].elts[0] +
+                                                 ', line ' + context[i].elts[2] +
+                                                 ', column ' + context[i].elts[3])
+                                    .addClass('stacktrace')
+                                    .css('margin-left', '10px')
+                                    .css('whitespace', 'pre')
+                                    .css('color', 'red'));
+                        } else if (plt.runtime.isProcedure(context[i])) {
+                            M.params.currentErrorDisplayer(
+                                M,
+                                $('<div/>').text('  in ' + context[i].displayName)
+                                    .addClass('stacktrace')
+                                    .css('margin-left', '10px')
+                                    .css('whitespace', 'pre')
+                                    .css('color', 'red'));
+                        }                                     
+                    }
+                }
+            }
+        });
 };
-  
   $(document).ready(invokeMainModule);
 EOF
   )

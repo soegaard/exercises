@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, width=device-width, height=device-height, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta charset="utf-8"/>
+    <title></title>
+  </head>
+  <script src='stxmat-exercises.js'></script>
+
+  <script>
+  var invokeMainModule = function() {
+    var M = plt.runtime.currentMachine;
+    var startTime = new Date().valueOf();
+    plt.runtime.invokeMains(
+        M,
+        function() {
+            // On main module invokation success:
+            var stopTime = new Date().valueOf();                                
+            if (window.console && window.console.log) {
+                window.console.log('evaluation took ' + (stopTime - startTime) + ' milliseconds');
+            }
+        },
+        function(M, e) {
+            var contMarkSet, context, i, appName;
+            // On main module invokation failure
+            if (window.console && window.console.log) {
+                window.console.log(e.stack || e);
+            }
+            
+            M.params.currentErrorDisplayer(
+                M, $(plt.baselib.format.toDomNode(e.stack || e)).css('color', 'red'));
+
+            if (e.hasOwnProperty('racketError') &&
+                plt.baselib.exceptions.isExn(e.racketError)) {
+                contMarkSet = plt.baselib.exceptions.exnContMarks(e.racketError);
+                if (contMarkSet) {
+                    context = contMarkSet.getContext(M);
+                    for (i = 0; i < context.length; i++) {
+                        if (plt.runtime.isVector(context[i])) {
+                            M.params.currentErrorDisplayer(
+                                M,
+                                $('<div/>').text('  at ' + context[i].elts[0] +
+                                                 ', line ' + context[i].elts[2] +
+                                                 ', column ' + context[i].elts[3])
+                                    .addClass('stacktrace')
+                                    .css('margin-left', '10px')
+                                    .css('whitespace', 'pre')
+                                    .css('color', 'red'));
+                        } else if (plt.runtime.isProcedure(context[i])) {
+                            M.params.currentErrorDisplayer(
+                                M,
+                                $('<div/>').text('  in ' + context[i].displayName)
+                                    .addClass('stacktrace')
+                                    .css('margin-left', '10px')
+                                    .css('whitespace', 'pre')
+                                    .css('color', 'red'));
+                        }                                     
+                    }
+                }
+            }
+        });
+};
+  $(document).ready(invokeMainModule);
+  </script>
+  </head>
+  
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js">
+  MathJax.Hub.Config({
+    extensions: ["tex2jax.js"],
+    jax: ["input/TeX", "output/HTML-CSS"],
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      displayMath: [ ['$$','$$'], ["\\[","\\]"] ],
+      processEscapes: true
+    },
+    "HTML-CSS": { availableFonts: ["TeX"] }
+  });
+</script>
+<script type="text/javascript" src="../js-libs/raphael.js"></script>
+<script type="text/javascript" src="../js-libs/scratchpad.js"></script>
+  <body></body>
+  </html>

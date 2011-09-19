@@ -59,7 +59,7 @@
     Vector.prototype.toList = function () {
         var ret = baselib.lists.EMPTY, i;
         for (i = this.length() - 1; i >= 0; i--) {
-            ret = baselib.lists.Cons.makeInstance(this.elts[i], ret);           
+            ret = baselib.lists.makePair(this.elts[i], ret);           
         }       
         return ret;
     };
@@ -99,12 +99,13 @@
 
     var isVector = function (x) { return x instanceof Vector; };
 
-    var makeVector = function () {
-        return Vector.makeInstance(arguments.length, arguments);
+    // makeVector: x ... -> vector
+    var makeVector = function (n, elts) {
+        return Vector.makeInstance(n, elts);
     };
 
-    var makeVectorImmutable = function () {
-        var v = Vector.makeInstance(arguments.length, arguments);
+    var makeVectorImmutable = function (n, elts) {
+        var v = Vector.makeInstance(n, elts);
         v.mutable = false;
         return v;
     };

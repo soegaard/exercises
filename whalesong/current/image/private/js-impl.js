@@ -170,7 +170,7 @@ EXPORTS['image-color?'] =
         'image-color?',
         1,
         function(MACHINE) {
-            var elt = MACHINE.env[MACHINE.env.length - 1];
+            var elt = MACHINE.e[MACHINE.e.length - 1];
             return (isColorOrColorString(elt));
         });
 
@@ -181,7 +181,7 @@ EXPORTS['mode?'] =
         'mode?',
         1,
         function(MACHINE) {
-            return isMode(MACHINE.env[MACHINE.env.length - 1]);
+            return isMode(MACHINE.e[MACHINE.e.length - 1]);
         });
 
 EXPORTS['x-place?'] = 
@@ -189,7 +189,7 @@ EXPORTS['x-place?'] =
         'x-place?',
         1,
         function(MACHINE) {
-            return isPlaceX(MACHINE.env[MACHINE.env.length - 1]);
+            return isPlaceX(MACHINE.e[MACHINE.e.length - 1]);
         });
 
 EXPORTS['y-place?'] = 
@@ -197,7 +197,7 @@ EXPORTS['y-place?'] =
         'y-place?',
         1,
         function(MACHINE) {
-            return isPlaceY(MACHINE.env[MACHINE.env.length - 1]);
+            return isPlaceY(MACHINE.e[MACHINE.e.length - 1]);
         });
 
 EXPORTS['angle?'] = 
@@ -205,7 +205,7 @@ EXPORTS['angle?'] =
         'angle?',
         1,
         function(MACHINE) {
-            return isAngle(MACHINE.env[MACHINE.env.length - 1]);
+            return isAngle(MACHINE.e[MACHINE.e.length - 1]);
         });
 
 EXPORTS['side-count?'] = 
@@ -213,7 +213,7 @@ EXPORTS['side-count?'] =
         'side-count?',
         1,
         function(MACHINE) {
-            return isSideCount(MACHINE.env[MACHINE.env.length - 1]);
+            return isSideCount(MACHINE.e[MACHINE.e.length - 1]);
         });
 
 
@@ -222,7 +222,7 @@ EXPORTS['step-count?'] =
         'step-count?',
             1,
         function(MACHINE) {
-            return isStepCount(MACHINE.env[MACHINE.env.length - 1]);
+            return isStepCount(MACHINE.e[MACHINE.e.length - 1]);
         });
 
 
@@ -231,7 +231,7 @@ EXPORTS['image?'] =
         'image?',
             1,
         function(MACHINE) {
-            return isImage(MACHINE.env[MACHINE.env.length - 1]);
+            return isImage(MACHINE.e[MACHINE.e.length - 1]);
         });
 
 
@@ -286,13 +286,13 @@ EXPORTS['bitmap/url'] =
         1,
         function(MACHINE) {
             var url = checkString(MACHINE, 'bitmap/url', 0);
-            var oldArgcount = MACHINE.argcount;
+            var oldArgcount = MACHINE.a;
             PAUSE(
                 function(restart) {
                     var rawImage = new Image();
                     rawImage.onload = function() {
                         restart(function(MACHINE) {
-                            MACHINE.argcount = oldArgcount;
+                            MACHINE.a = oldArgcount;
                             finalizeClosureCall(
                                 MACHINE, 
                                 makeFileImage(url.toString(),
@@ -305,8 +305,8 @@ EXPORTS['bitmap/url'] =
                                 MACHINE, 
                                 new Error(plt.baselib.format.format(
                                     "unable to load ~a: ~a",
-                                    url,
-                                    e.message)));
+                                    [url,
+                                     e.message])));
                         });
                     }
                     rawImage.src = url.toString();
@@ -333,7 +333,7 @@ EXPORTS['overlay'] =
 	    var img1 = checkImage(MACHINE, "overlay", 0);
 	    var img2 = checkImage(MACHINE, "overlay", 1);
             var restImages = [];
-	    for (var i = 2; i < MACHINE.argcount; i++) {
+	    for (var i = 2; i < MACHINE.a; i++) {
 		restImages.push(checkImage(MACHINE, "overlay", i));
 	    }
             
@@ -373,7 +373,7 @@ EXPORTS['overlay/xy'] =
 	     var img1 = checkImage(MACHINE, "overlay/align", 2);
 	     var img2 = checkImage(MACHINE, "overlay/align", 3);
              var restImages = [];
-	     for (var i = 4; i < MACHINE.argcount; i++) {
+	     for (var i = 4; i < MACHINE.a; i++) {
                  restImages.push(checkImage(MACHINE, "overlay/align", i));
              }
 	     var img = makeOverlayImage(img1,
@@ -400,7 +400,7 @@ EXPORTS['underlay'] =
 	    var img1 = checkImage(MACHINE, "underlay", 0);
 	    var img2 = checkImage(MACHINE, "underlay", 1);
 	    var restImages = [];
-	    for (var i = 2; i < MACHINE.argcount; i++) {
+	    for (var i = 2; i < MACHINE.a; i++) {
 		restImages.push(checkImage(MACHINE, "underlay", i));
 	    }
 
@@ -437,7 +437,7 @@ EXPORTS['underlay/align'] =
 	    var img1 = checkImage(MACHINE, "underlay/align", 2);
 	    var img2 = checkImage(MACHINE, "underlay/align", 3);
             var restImages = [];
-            for (var i = 4; i < MACHINE.argcount; i++) {
+            for (var i = 4; i < MACHINE.a; i++) {
                 restImages.push(checkImage(MACHINE, "underlay/align", i));
             }
 	    
@@ -465,7 +465,7 @@ EXPORTS['beside'] =
 	    var img1 = checkImage(MACHINE, "beside", 0);
 	    var img2 = checkImage(MACHINE, "beside", 1);
             var restImages = [];
-	    for (var i = 2; i < MACHINE.argcount; i++) {
+	    for (var i = 2; i < MACHINE.a; i++) {
                 restImages.push(checkImage(MACHINE, "beside", i));
             }
 	    
@@ -491,7 +491,7 @@ EXPORTS['beside/align'] =
 	    var img1 = checkImage(MACHINE, "beside/align", 1);
 	    var img2 = checkImage(MACHINE, "beside/align", 2);
             var restImages = [];
-            for (var i = 3; i < MACHINE.argcount; i++) {
+            for (var i = 3; i < MACHINE.a; i++) {
                 restImages.push(checkImage(MACHINE, "beside/align", i));
             }
 
@@ -519,7 +519,7 @@ EXPORTS['above'] =
 	    var img1 = checkImage(MACHINE, "above", 0);
 	    var img2 = checkImage(MACHINE, "above", 1);
 	    var restImages = [];
-            for (var i = 2; i < MACHINE.argcount; i++) {
+            for (var i = 2; i < MACHINE.a; i++) {
                 restImages.push(checkImage(MACHINE, "above", i));
             }
 	    
@@ -546,7 +546,7 @@ EXPORTS['above/align'] =
 	    var img1 = checkImage(MACHINE, "above/align", 1);
 	    var img2 = checkImage(MACHINE, "above/align", 2);
             var restImages = [];
-            for (var i = 3; i < MACHINE.argcount; i++) {
+            for (var i = 3; i < MACHINE.a; i++) {
 	        restImages.push(checkImage(MACHINE, "above/align", i));
             }
 
@@ -925,7 +925,7 @@ EXPORTS['star'] =
         'star',
         plt.baselib.lists.makeList(3, 5),
         function(MACHINE) {
-            if (MACHINE.argcount === 3) {
+            if (MACHINE.a === 3) {
                 var sideLength = checkNonNegativeReal(MACHINE, "star", 0);
 		var mode = checkMode(MACHINE, "star", 1);
 		var color = checkColor(MACHINE, "star", 2);
@@ -934,7 +934,7 @@ EXPORTS['star'] =
 					jsnums.toFixnum(2), 
 					mode.toString(), 
 					color);
-            } else if (MACHINE.argcount === 5) {
+            } else if (MACHINE.a === 5) {
 		var n = checkSideCount(MACHINE, "star", 0);
 		var outer = checkNonNegativeReal(MACHINE, "star", 1);
 		var inner = checkNonNegativeReal(MACHINE, "star", 2);

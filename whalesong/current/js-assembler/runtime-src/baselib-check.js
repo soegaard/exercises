@@ -16,7 +16,7 @@
     //////////////////////////////////////////////////////////////////////
 
     // testArgument: (X -> boolean) X number string string -> boolean
-    // Produces true if val is true, and otherwise raises an error.
+    // Produces the argument value the predicate is true, and otherwise raises an error.
     var testArgument = function (MACHINE,
                                  expectedTypeName,
                                  predicate,                          
@@ -24,7 +24,7 @@
                                  index, 
                                  callerName) {
         if (predicate(val)) {
-            return true;
+            return val;
         } else {
             if (typeof(expectedTypeName) === 'function') { 
                 expectedTypeName = expectedTypeName(); 
@@ -40,14 +40,13 @@
 
     var makeCheckArgumentType = function (predicate, predicateName) {
         return function (MACHINE, callerName, position) {
-            testArgument(
+            return testArgument(
                 MACHINE,
                 predicateName,
                 predicate,
-                MACHINE.env[MACHINE.env.length - 1 - position],
+                MACHINE.e[MACHINE.e.length - 1 - position],
                 position,
                 callerName);
-            return MACHINE.env[MACHINE.env.length - 1 - position];
         };
     };
 
@@ -58,16 +57,15 @@
             for (i = 3; i < arguments.length; i++) {
                 args.push(arguments[i]);
             }
-            testArgument(
+            return testArgument(
                 MACHINE,
                 function () { return parameterizedPredicateName.apply(null, args); },
                 function (x) {
                     return parameterizedPredicate.apply(null, [x].concat(args));
                 },
-                MACHINE.env[MACHINE.env.length - 1 - position],
+                MACHINE.e[MACHINE.e.length - 1 - position],
                 position,
                 callerName);
-            return MACHINE.env[MACHINE.env.length - 1 - position];
         };
     };
 
@@ -101,14 +99,13 @@
             }
         };
         return function (MACHINE, callerName, position) {
-            testArgument(
+            return testArgument(
                 MACHINE,
                 'list of ' + predicateName,
                 listPredicate,
-                MACHINE.env[MACHINE.env.length - 1 - position],
+                MACHINE.e[MACHINE.e.length - 1 - position],
                 position,
                 callerName);
-            return MACHINE.env[MACHINE.env.length - 1 - position];
         };
     };
 
@@ -121,10 +118,12 @@
     var testArity = function (MACHINE, callerName, observed, minimum, maximum) {
         if (observed < minimum || observed > maximum) {
             baselib.exceptions.raise(
-                MACHINE, new Error(callerName + ": expected at least " + minimum
-                                   + " arguments "
-                                   + " but received " + observed));
-
+                MACHINE, 
+                baselib.exceptions.ExnFailContractArity.constructor(
+                    callerName + ": expected at least " + minimum
+                        + " arguments "
+                        + " but received " + observed,
+                    MACHINE.captureContinuationMarks()));
         }
     };
 
@@ -142,6 +141,11 @@
     var checkString = makeCheckArgumentType(
         baselib.strings.isString,
         'string');
+
+    var checkSymbolOrString = makeCheckArgumentType(
+        function(x) { return (baselib.symbols.isSymbol(x) || 
+                              baselib.strings.isString(x)); },
+        'symbol or string');
 
     var checkMutableString = makeCheckArgumentType(
         baselib.strings.isMutableString,
@@ -226,9 +230,14 @@
         'inspector');
 
 
+    var checkPlaceholder = makeCheckArgumentType(
+        baselib.placeholders.isPlaceholder,
+        'placeholder');
 
 
-
+    var checkSrcloc = makeCheckArgumentType(
+        baselib.srclocs.isSrcloc,
+        'srcloc');
 
 
     //////////////////////////////////////////////////////////////////////
@@ -241,10 +250,11 @@
     exports.makeCheckListofArgumentType = makeCheckListofArgumentType;
 
     exports.checkOutputPort = checkOutputPort;
+    exports.checkSymbol = checkSymbol;
     exports.checkString = checkString;
+    exports.checkSymbolOrString = checkSymbolOrString;
     exports.checkMutableString = checkMutableString;
     exports.checkChar = checkChar;
-    exports.checkSymbol = checkSymbol;
     exports.checkProcedure = checkProcedure;
     exports.checkNumber = checkNumber;
     exports.checkReal = checkReal;
@@ -263,7 +273,7 @@
     exports.checkInspector = checkInspector;
     exports.checkByte = checkByte;
     exports.checkBoolean = checkBoolean;
-
-
+    exports.checkPlaceholder = checkPlaceholder;
+    exports.checkSrcloc = checkSrcloc;
 
 }(this.plt.baselib));

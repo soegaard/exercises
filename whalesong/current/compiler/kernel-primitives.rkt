@@ -70,6 +70,18 @@
                                     'make-struct-type
                                     'current-inspector
                                     'make-struct-field-accessor
+                                    'make-struct-field-mutator
+                                    
+                                    'gensym
+                                    'srcloc
+                                    'make-srcloc
+                                    'srcloc-source
+                                    'srcloc-line
+                                    'srcloc-column
+                                    'srcloc-position
+                                    'srcloc-span
+
+                                    'raise-type-error
                                     ))
 (define-predicate KernelPrimitiveName? KernelPrimitiveName)
 

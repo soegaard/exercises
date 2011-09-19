@@ -23,9 +23,10 @@
                [get-module-bytecode ((U String Path Input-Port) -> Bytes)])
 
 
-(provide make
-         current-module-source-compiling-hook
-         get-ast-and-statements)
+(provide make)
+
+
+
 
 
 (: current-module-source-compiling-hook
@@ -34,20 +35,6 @@
   (make-parameter (lambda: ([s : Source]) s)))
 
 
-(: source-name (Source -> String))
-(define (source-name a-source)
-  (cond
-   [(StatementsSource? a-source)
-    "<StatementsSource>"]
-   [(UninterpretedSource? a-source)
-    "<UninterpretedSource>"]
-   [(MainModuleSource? a-source)
-    "<MainModuleSource>"]
-   [(SexpSource? a-source)
-    "<SexpSource>"]
-   [(ModuleSource? a-source)
-    (format "<ModuleSource ~a>"
-            (ModuleSource-path a-source))]))
 
 
    
@@ -76,20 +63,36 @@
           (values ast stmts)])))]
 
    [else
-    (let ([ast
-           (cond
-            [(ModuleSource? a-source)
-             (parse-bytecode (ModuleSource-path a-source))]
-            [(SexpSource? a-source)
-             (let ([source-code-op (open-output-bytes)])
-               (write (SexpSource-sexp a-source) source-code-op)
-               (parse-bytecode
-                (open-input-bytes
-                 (get-module-bytecode
-                  (open-input-bytes
-                   (get-output-bytes source-code-op))))))])])
-      (values ast
-              (compile ast 'val next-linkage/drop-multiple)))]))
+    (let ([ast (get-ast a-source)])
+      (define start-time (current-inexact-milliseconds))
+      (define compiled-code (compile ast 'val next-linkage/drop-multiple))
+      (define stop-time (current-inexact-milliseconds))
+      (fprintf (current-timing-port) "  compile ast: ~a milliseconds\n" (- stop-time start-time))
+      (values ast compiled-code))]))
+
+
+
+(: get-ast ((U ModuleSource SexpSource) -> Expression))
+(define (get-ast a-source)
+  (define start-time (current-inexact-milliseconds))
+  (: ast Expression)
+  (define ast (cond
+               [(ModuleSource? a-source)
+                (parse-bytecode (ModuleSource-path a-source))]
+               [(SexpSource? a-source)
+                (let ([source-code-op (open-output-bytes)])
+                  (write (SexpSource-sexp a-source) source-code-op)
+                  (parse-bytecode
+                   (open-input-bytes
+                    (get-module-bytecode
+                     (open-input-bytes
+                      (get-output-bytes source-code-op))))))]))
+  (define stop-time (current-inexact-milliseconds))
+  (fprintf (current-timing-port) "  get-ast: ~a milliseconds\n" (- stop-time start-time))
+  ast)
+
+
+
 
 
 
@@ -126,7 +129,7 @@
 
        (: follow-dependencies ((Listof Source) -> Void))
        (define (follow-dependencies sources)
-         (define visited ((inst make-hash Any Boolean)))
+         (define visited ((inst make-hash Source Boolean)))
 
          (: collect-new-dependencies
             (Source (U False Expression) -> (Listof Source)))
@@ -146,13 +149,15 @@
                        (foldl (lambda: ([mp : ModuleLocator]
                                         [acc : (Listof Source)])
                                        (let ([rp [ModuleLocator-real-path mp]])
-                                         (cond [((current-kernel-module-locator?)
-                                                 mp)
-                                                acc]
-                                               [(path? rp)
-                                                (cons (make-ModuleSource rp) acc)]
-                                               [else
-                                                acc])))
+                                         (cond
+                                          ;; Ignore modules that are implemented by Whalesong.
+                                          [((current-kernel-module-locator?)
+                                            mp)
+                                           acc]
+                                          [(path? rp)
+                                           (cons (make-ModuleSource rp) acc)]
+                                          [else
+                                           acc])))
                               '()
                               dependent-module-names)])
                  paths)])]))
@@ -164,18 +169,20 @@
             [(hash-has-key? visited (first sources))
              (loop (rest sources))]
             [else
-             (log-debug (format "compiling a module ~a"
-                                (source-name (first sources))))
+             (fprintf (current-timing-port) "compiling a module ~a\n" (source-name (first sources)))
              (hash-set! visited (first sources) #t)
              (let*-values ([(this-source)
-                             ((current-module-source-compiling-hook)
-                              (first sources))]
+                            ((current-module-source-compiling-hook)
+                             (first sources))]
                            [(ast stmts)
                             (get-ast-and-statements this-source)])
-               (log-debug "visiting")
+               (log-debug (format "visiting ~a\n" (source-name this-source)))
                (on-module-statements this-source ast stmts)
-               (loop (append (map wrap-source (collect-new-dependencies this-source ast))
-                             (rest sources)))
-               (after-module-statements this-source ast stmts))])))
+               (define start-time (current-inexact-milliseconds))
+               (define new-dependencies (map wrap-source (collect-new-dependencies this-source ast)))
+               (define end-time (current-inexact-milliseconds))
+               (fprintf (current-timing-port) "  computing dependencies: ~a milliseconds\n" (- end-time start-time))
+               (loop (append new-dependencies (rest sources)))
+               (after-module-statements this-source))])))
 
        (follow-dependencies (map wrap-source sources))])))

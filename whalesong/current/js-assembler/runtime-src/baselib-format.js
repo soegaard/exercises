@@ -66,6 +66,11 @@
         if (typeof(x) === 'string') {
             return escapeString(x.toString());
         }
+
+        if (baselib.functions.isProcedure(x)) {
+            return '#<procedure:' + x.displayName + '>';
+        }
+
         if (typeof(x) !== 'object' && typeof(x) !== 'function') {
             return x.toString();
         }
@@ -78,7 +83,6 @@
         } else {
             returnVal = x.toString();
         }
-        cache.remove(x);
         return returnVal;
     };
 
@@ -105,6 +109,11 @@
         if (typeof(x) === 'string') {
             return x;
         }
+
+        if (baselib.functions.isProcedure(x)) {
+            return '#<procedure:' + x.displayName + '>';
+        }
+
         if (typeof(x) !== 'object' && typeof(x) !== 'function') {
             return x.toString();
         }
@@ -117,7 +126,6 @@
         } else {
             returnVal = x.toString();
         }
-        cache.remove(x);
         return returnVal;
     };
 
@@ -373,10 +381,16 @@
             return wrapper;
         }
 
+        if (baselib.functions.isProcedure(x)) {
+            node = document.createElement("span");
+            node.appendChild(document.createTextNode('#<procedure: ' + x.displayName + '>'));
+            $(node).addClass("procedure");
+            return node;
+        }
+
         if (typeof(x) !== 'object' && typeof(x) !== 'function') {
             node = document.createElement("span");
             node.appendChild(document.createTextNode(x.toString()));
-            $(node).addClass("procedure");
             return node;
         }
 

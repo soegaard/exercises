@@ -54,10 +54,6 @@ var colorString = function(aColor) {
 
 
 
-// Produces true if thing is an image.
-var isImage = function(thing) {
-    return (thing instanceof BaseImage);
-};
 
 var isSideCount = function(x) {
     return plt.baselib.numbers.isInteger(x) && jsnums.greaterThanOrEqual(x, 3);
@@ -72,6 +68,24 @@ var isPointsCount = function(x) {
     return plt.baselib.numbers.isNatural(x) && jsnums.greaterThanOrEqual(x, 2); 
 };
 
+
+
+
+
+// Produces true if thing is an image-like object.
+var isImage = function(thing) {
+    if (typeof(thing.getHeight) !== 'function')
+        return false;
+    if (typeof(thing.getWidth) !== 'function')
+        return false;
+    if (typeof(thing.getBaseline) !== 'function')
+        return false;
+    if (typeof(thing.updatePinhole) !== 'function')
+        return false;
+    if (typeof(thing.render) !== 'function')
+        return false;
+    return true;
+};
 
 
 
@@ -125,7 +139,7 @@ var makeCanvas = function(width, height) {
 
     // KLUDGE: IE compatibility uses /js/excanvas.js, and dynamic
     // elements must be marked this way.
-    if (window && typeof window.G_vmlCanvasManager != 'undefined') {
+    if (window.G_vmlCanvasManager) {
 	canvas = window.G_vmlCanvasManager.initElement(canvas);
     }
     return canvas;

@@ -3,13 +3,26 @@
                                      sgn conjugate))
          (prefix-in racket: racket/base)
 	 racket/local
-	 (for-syntax racket/base))
+	 (for-syntax racket/base)
+         racket/stxparam
+         
+         (only-in '#%paramz
+                  exception-handler-key
+                  parameterization-key
+                  break-enabled-key))
+
+(require (prefix-in kernel: '#%kernel))
 
 
+(provide exception-handler-key
+         parameterization-key
+         break-enabled-key)
+
+
+(provide define-syntax-parameter
+         syntax-parameterize)
 
 ;; constants
-(define true #t)
-(define false #f)
 (define pi racket:pi)
 (define e (racket:exp 1))
 
@@ -55,15 +68,14 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Provides
-(provide true
-         false
-         pi
+(provide pi
          e
          null
          #%plain-module-begin
 	 #%module-begin
 	 #%datum
 	 #%app
+         #%plain-app
 	 #%top-interaction
 	 #%top
          module
@@ -79,7 +91,6 @@
 	 else
 	 case
 	 quote
-	 quasiquote
 	 unquote
 	 unquote-splicing
 	 lambda
@@ -145,8 +156,22 @@
          eq?
          values
 
-         apply
-         call-with-values)
+         ;; The version of apply in racket/base is doing some stuff that
+         ;; we are not handling yet.  So we expose the raw apply here instead.
+         (rename-out [kernel:apply apply])
+         call-with-values
+
+         gensym
+
+
+         srcloc
+         make-srcloc
+         srcloc?
+         srcloc-source
+         srcloc-line
+         srcloc-column
+         srcloc-position
+         srcloc-span)
 
 
 (define (-identity x) x)
@@ -222,8 +247,8 @@ raise-mismatch-error
   quotient
   remainder
   modulo
-;;  max
-;;  min
+  max
+  min
   gcd
   lcm
   floor
@@ -255,7 +280,7 @@ raise-mismatch-error
   magnitude
   conjugate
   ;;  inexact->exact
-;;  exact->inexact
+  ;;  exact->inexact
   number->string
   string->number
   procedure?
@@ -275,18 +300,18 @@ vector?
 ;;  bytes?
 ;;  byte?
 number?
-;;  complex?
-;;  real?
-;;  rational?
+complex?
+real?
+rational?
 integer?
 exact?
 exact-nonnegative-integer?
 ;;  inexact?
-;;  odd?
-;;  even?
-  zero?
-;;  positive?
-;;  negative?
+odd?
+even?
+zero?
+positive?
+negative?
 ;;  box?
 ;;  hash?
 
@@ -314,8 +339,8 @@ exact-nonnegative-integer?
   reverse
   for-each
   map
-;;  andmap
-;;  ormap
+  andmap
+  ormap
 memq
 ;;  memv
   member
@@ -345,15 +370,16 @@ memq
   string-length
   string-ref
   string=?
-;;  string-ci=?
-;;  string<?
-;;  string>?
-;;  string<=?
-;;  string>=?
-;;  string-ci<?
-;;  string-ci>?
-;;  string-ci<=?
-;;  string-ci>=?
+  string<?
+  string>?
+  string<=?
+  string>=?
+  string-ci=?
+  string-ci<?
+  string-ci>?
+  string-ci<=?
+  string-ci>=?
+
   substring
   string-append
   string->list
@@ -408,8 +434,8 @@ char=?
 ;;  char-lower-case?
 ;;  char->integer
 ;;  integer->char
-;;  char-upcase
-;;  char-downcase
+  char-upcase
+  char-downcase
 
  
 ;;  call-with-current-continuation
@@ -420,10 +446,9 @@ char=?
 ;;  make-continuation-prompt-tag
 ;;  continuation-prompt-tag?
 
-;;  make-reader-graph
-;;  make-placeholder
-;;  placeholder-set!
- )
+  make-reader-graph
+  make-placeholder
+  placeholder-set!)
 
 
 

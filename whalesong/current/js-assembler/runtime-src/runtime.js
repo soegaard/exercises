@@ -186,19 +186,19 @@
 
 
     var defaultCurrentPrintImplementation = function defaultCurrentPrintImplementation(MACHINE) {
-        if(--MACHINE.callsBeforeTrampoline < 0) { 
+        if(--MACHINE.cbt < 0) { 
             throw defaultCurrentPrintImplementation; 
         }
-        var oldArgcount = MACHINE.argcount;
+        var oldArgcount = MACHINE.a;
 
-	var elt = MACHINE.env[MACHINE.env.length - 1];
+	var elt = MACHINE.e[MACHINE.e.length - 1];
 	var outputPort = 
 	    MACHINE.params.currentOutputPort;
 	if (elt !== VOID) {
 	    outputPort.writeDomNode(MACHINE, toDomNode(elt, 'print'));
 	    outputPort.writeDomNode(MACHINE, toDomNode("\n", 'display'));
 	}
-        MACHINE.argcount = oldArgcount;
+        MACHINE.a = oldArgcount;
         return finalizeClosureCall(MACHINE, VOID);
     };
     var defaultCurrentPrint = makeClosure(
@@ -211,16 +211,19 @@
     // The MACHINE
 
     var Machine = function() {
-	this.callsBeforeTrampoline = STACK_LIMIT_ESTIMATE;
-	this.val = undefined;
-	this.proc = undefined;
-	this.argcount = undefined;
-	this.env = [];
-	this.control = [];     // Arrayof (U Frame CallFrame PromptFrame)
+	this.cbt = STACK_LIMIT_ESTIMATE;  // calls before trampoline
+	this.v = undefined;         // value register
+	this.p = undefined;        // procedure register
+	this.a = undefined;           // argument count
+	this.e = [];                // environment
+	this.c = [];            // control: Arrayof (U Frame CallFrame PromptFrame)
 	this.running = false;
 	this.modules = {};     // String -> ModuleRecord
         this.mainModules = []; // Arrayof String
 	this.params = {
+
+            // print-as-expression: boolean
+            'print-as-expression' : true,
 
 	    // currentDisplayer: DomNode -> Void
 	    // currentDisplayer is responsible for displaying to the browser.
@@ -270,6 +273,22 @@
     };
     
 
+    // Try to get the continuation mark key used for procedure application tracing.
+    var getTracedAppKey = function(MACHINE) {
+        if (MACHINE.modules['whalesong/lang/private/traced-app.rkt']) {
+            return MACHINE.modules['whalesong/lang/private/traced-app.rkt'].namespace['traced-app-key'];
+        }
+        return undefined;
+    };
+
+    var getTracedCalleeKey = function(MACHINE) {
+        if (MACHINE.modules['whalesong/lang/private/traced-app.rkt']) {
+            return MACHINE.modules['whalesong/lang/private/traced-app.rkt'].namespace['traced-callee-key'];
+        }
+        return undefined;
+    };
+
+
 
     // captureControl implements the continuation-capturing part of
     // call/cc.  It grabs the control frames up to (but not including) the
@@ -277,10 +296,10 @@
     Machine.prototype.captureControl = function(skip, tag) {
 	var MACHINE = this;
 	var i;
-	for (i = MACHINE.control.length - 1 - skip; i >= 0; i--) {
-	    if (MACHINE.control[i].tag === tag) {
-		return MACHINE.control.slice(i + 1,
-					     MACHINE.control.length - skip);
+	for (i = MACHINE.c.length - 1 - skip; i >= 0; i--) {
+	    if (MACHINE.c[i].tag === tag) {
+		return MACHINE.c.slice(i + 1,
+					     MACHINE.c.length - skip);
 	    }
 	} 
 	raise(MACHINE, new Error("captureControl: unable to find tag " + tag));
@@ -295,11 +314,11 @@
     Machine.prototype.restoreControl = function(tag) {
 	var MACHINE = this;
 	var i;
-	for (i = MACHINE.control.length - 1; i >= 0; i--) {
-	    if (MACHINE.control[i].tag === tag) {
-		MACHINE.control = 
-		    MACHINE.control.slice(0, i+1).concat(
-			MACHINE.env[MACHINE.env.length - 1]);
+	for (i = MACHINE.c.length - 1; i >= 0; i--) {
+	    if (MACHINE.c[i].tag === tag) {
+		MACHINE.c = 
+		    MACHINE.c.slice(0, i+1).concat(
+			MACHINE.e[MACHINE.e.length - 1]);
 		return;
 	    }
 	}
@@ -308,20 +327,20 @@
     };
 
 
-    // Splices the list argument in the environment.  Adjusts MACHINE.argcount
+    // Splices the list argument in the environment.  Adjusts MACHINE.a
     // appropriately.
     Machine.prototype.spliceListIntoStack = function(depth) {
 	var MACHINE = this;
-	var lst = MACHINE.env[MACHINE.env.length - 1 - depth];
+	var lst = MACHINE.e[MACHINE.e.length - 1 - depth];
 	var vals = [];
 	while(lst !== NULL) {
 	    vals.push(lst.first);
 	    lst = lst.rest;
 	}
 	vals.reverse();
-	MACHINE.env.splice.apply(MACHINE.env,
-				 [MACHINE.env.length - 1 - depth, 1].concat(vals));
-	MACHINE.argcount = MACHINE.argcount + vals.length - 1;
+	MACHINE.e.splice.apply(MACHINE.e,
+				 [MACHINE.e.length - 1 - depth, 1].concat(vals));
+	MACHINE.a = MACHINE.a + vals.length - 1;
     };
 
 
@@ -331,16 +350,49 @@
 	var lst = NULL;
 	var i;
 	for (i = 0; i < length; i++) {
-	    lst = makePair(MACHINE.env[MACHINE.env.length - depth - length + i], 
+	    lst = makePair(MACHINE.e[MACHINE.e.length - depth - length + i], 
                            lst);
 	}
-	MACHINE.env.splice(MACHINE.env.length - depth - length,
+	MACHINE.e.splice(MACHINE.e.length - depth - length,
 			   length, 
 			   lst);
-	MACHINE.argcount = MACHINE.argcount - length + 1;
+	MACHINE.a = MACHINE.a - length + 1;
     };
 
 
+    // Save the continuation mark on the top control frame.
+    Machine.prototype.installContinuationMarkEntry = function(key, value) {
+        var frame = this.c[this.c.length - 1];
+        var marks = frame.marks;
+        var i;
+        for (i = 0; i < marks.length; i++) {
+            if (key === marks[i][0]) {
+                marks[i][1] = value;
+                return;
+            }
+        }
+        marks.push([key, value]);
+    };
+
+
+    Machine.prototype.captureContinuationMarks = function() {
+        var kvLists = [];
+        var i;
+        var control = this.c;
+        var tracedCalleeKey = getTracedCalleeKey(this);
+        for (i = control.length-1; i >= 0; i--) {
+            if (control[i].marks.length !== 0) {
+                kvLists.push(control[i].marks);
+            }
+            
+            if (tracedCalleeKey !== null && 
+                control[i] instanceof CallFrame &&
+                control[i].p !== null) {
+                kvLists.push([[tracedCalleeKey, control[i].p]]);
+            }
+        }     
+        return new baselib.contmarks.ContinuationMarkSet(kvLists);
+    };
     
 
 
@@ -394,18 +446,17 @@
     };
 
 
-    Machine.prototype.trampoline = function(initialJump) {
-	var MACHINE = this;
+    Machine.prototype.trampoline = function(initialJump, noJumpingOff) {
 	var thunk = initialJump;
 	var startTime = (new Date()).valueOf();
-	MACHINE.callsBeforeTrampoline = STACK_LIMIT_ESTIMATE;
-	MACHINE.params.numBouncesBeforeYield = 
-	    MACHINE.params.maxNumBouncesBeforeYield;
-	MACHINE.running = true;
+	this.cbt = STACK_LIMIT_ESTIMATE;
+	this.params.numBouncesBeforeYield = 
+	    this.params.maxNumBouncesBeforeYield;
+	this.running = true;
 
 	while(true) {
             try {
-		thunk(MACHINE);
+		thunk(this);
 		break;
             } catch (e) {
                 // There are a few kinds of things that can get thrown
@@ -430,36 +481,42 @@
                 // The running flag is set to false.
 		if (typeof(e) === 'function') {
                     thunk = e;
-                    MACHINE.callsBeforeTrampoline = STACK_LIMIT_ESTIMATE;
+                    this.cbt = STACK_LIMIT_ESTIMATE;
 
-		    if (MACHINE.params.numBouncesBeforeYield-- < 0) {
+
+                    // If we're running an a model that prohibits
+                    // jumping off the trampoline, continue.
+                    if (noJumpingOff) {
+                        continue;
+                    }
+
+		    if (this.params.numBouncesBeforeYield-- < 0) {
 			recomputeMaxNumBouncesBeforeYield(
-			    MACHINE,
+			    this,
 			    (new Date()).valueOf() - startTime);
-			scheduleTrampoline(MACHINE, thunk);
+			scheduleTrampoline(this, thunk);
 			return;
 		    }
 		} else if (e instanceof Pause) {
-                    var restart = makeRestartFunction(MACHINE);
+                    var restart = makeRestartFunction(this);
                     e.onPause(restart);
                     return;
                 } else if (e instanceof HaltError) {
-		    MACHINE.running = false;
-                    e.onHalt(MACHINE);
+		    this.running = false;
+                    e.onHalt(this);
                     return;
                 } else {
 		    // General error condition: just exit out
 		    // of the trampoline and call the current error handler.
-		    MACHINE.running = false;
-                    MACHINE.params.currentErrorHandler(MACHINE, e);
+		    this.running = false;
+                    this.params.currentErrorHandler(this, e);
 	            return;
 		}
             }
 	}
-	MACHINE.running = false;
-        setTimeout(
-            function() { MACHINE.params.currentSuccessHandler(MACHINE); },
-            0);
+	this.running = false;
+        var that = this;
+        this.params.currentSuccessHandler(this);
 	return;
     };
 
@@ -478,6 +535,9 @@
             Math.max(MACHINE.params.maxNumBouncesBeforeYield + delta,
                      1);
     };
+
+
+
 
 
 
@@ -533,7 +593,7 @@
     // setReadyTrue is called.
     var ready, setReadyTrue, setReadyFalse;
     (function() {
-        var runtimeIsReady = false;
+        var runtimeIsReady = true;
         var readyWaiters = [];
         var notifyWaiter = function(w) {
             w();
@@ -567,7 +627,10 @@
 
     // Executes all programs that have been labeled as a main module
     var invokeMains = function(machine, succ, fail) {
-        runtime.ready(function invokeMain() {
+        runtime.ready(function () {
+            if (window.console && window.console.log) {
+                window.console.log("invoking main modules");
+            }
             setReadyFalse();
             machine = machine || runtime.currentMachine;
             succ = succ || function() {};
@@ -597,6 +660,33 @@
             }
         }
     };
+
+
+
+    var checkClosureAndArity = function(M) {
+        if(!(M.p instanceof Closure)){
+            raiseOperatorIsNotClosure(M,M.p);
+        }
+        if(!isArityMatching(M.p.racketArity,M.a)) {
+            raiseArityMismatchError(M,M.p,M.a);
+        }
+    };
+
+
+
+    //////////////////////////////////////////////////////////////////////
+    // Superinstructions to try to reduce code size.
+    var si_context_expected = function(n) {
+        if (n === 1) { return si_context_expected_1; }
+        var f = function(M) { raiseContextExpectedValuesError(M, n); };
+        return f;
+    };
+    var si_context_expected_1 = function(M) { raiseContextExpectedValuesError(M, 1); }
+
+
+
+
+
 
 
 
@@ -684,6 +774,12 @@
     exports['makeBytes'] = makeBytes;
 
 
+    exports['checkPair'] = baselib.check.checkPair;
+    exports['checkNumber'] = baselib.check.checkNumber;
+    exports['checkString'] = baselib.check.checkString;
+
+
+
     // Type predicates
     exports['isPair'] = isPair;
     exports['isList'] = isList;
@@ -697,6 +793,7 @@
     exports['isNumber'] = isNumber;
     exports['isNatural'] = isNatural;
     exports['isReal'] = isReal;
+    exports['isProcedure'] = plt.baselib.functions.isProcedure;
     exports['equals'] = equals;
 
     exports['toDomNode'] = toDomNode;
@@ -718,6 +815,13 @@
     exports['makeStructureType'] = makeStructureType;
     exports['Struct'] = Struct;
     exports['StructType'] = StructType;
+
+    exports['getTracedAppKey'] = getTracedAppKey;
+    exports['getTracedCalleeKey'] = getTracedCalleeKey;
+
+    exports['si_context_expected'] = si_context_expected;
+    exports['si_context_expected_1'] = si_context_expected_1;
+    exports['checkClosureAndArity'] = checkClosureAndArity;
 
 
 }(this.plt, this.plt.baselib));
