@@ -1,3 +1,4 @@
+/*global $*/
 /*jslint browser: true, unparam: true, vars: true, plusplus: true, maxerr: 50, indent: 4 */
 
 
@@ -7,10 +8,7 @@
     var exports = {};
     baselib.lists = exports;
 
-    
 
-
-    
     var Empty = function () {
     };
     Empty.EMPTY = new Empty();
@@ -22,6 +20,11 @@
         return other instanceof Empty;
     };
 
+    Empty.prototype.hashCode = function(depth) {
+        return baselib.hashes.getEqualHashCode("empty");
+    };
+
+
     Empty.prototype.reverse = function () {
         return this;
     };
@@ -30,12 +33,28 @@
     Empty.prototype.toDisplayedString = function (cache) { return "empty"; };
     Empty.prototype.toString = function (cache) { return "()"; };
 
-    
+    Empty.prototype.toDomNode = function(params) {
+        if (params.getMode() === "display") {
+            return $("<span/>").text("()").get(0);
+        } else if (params.getMode() === "write") {
+            return $("<span/>").text("()").get(0);
+        } else if (params.getMode() === "print") {
+            if (params.getDepth() === 0) {
+                return $("<span/>").text("'()").get(0);
+            } else {
+                return $("<span/>").text("()").get(0);
+            }
+        } else if (params.getMode() === "constructor") {
+            return $("<span/>").text("(list)").get(0);
+        } else {
+            return $("<span/>").text("()").get(0);
+        }
+    };
+
     // Empty.append: (listof X) -> (listof X)
     Empty.prototype.append = function (b) {
         return b;
     };
-    
 
 
 
@@ -61,7 +80,6 @@
         }
         return ret;
     };
-    
 
     // FIXME: can we reduce the recursion on this?
     Cons.prototype.equals = function (other, aUnionFind) {
@@ -71,9 +89,17 @@
         return (baselib.equality.equals(this.first, other.first, aUnionFind) &&
                 baselib.equality.equals(this.rest, other.rest, aUnionFind));
     };
-    
 
-    
+    Cons.prototype.hashCode = function(depth) {
+        var k = baselib.hashes.getEqualHashCode("Cons");
+        k += baselib.hashes.getEqualHashCode(this.first, depth);
+        k = baselib.hashes.hashMix(k);
+        k += baselib.hashes.getEqualHashCode(this.rest, depth);
+        k = baselib.hashes.hashMix(k);
+        return k;
+    };
+
+
 
     // Cons.append: (listof X) -> (listof X)
     Cons.prototype.append = function (b) {
@@ -86,10 +112,9 @@
             ret = makePair(lst.first, ret);
             lst = lst.rest;
         }
-        
         return ret;
     };
-    
+
 
     Cons.prototype.toWrittenString = function (cache) {
         cache.put(this, true);
@@ -131,27 +156,69 @@
 
 
 
-    Cons.prototype.toDomNode = function (cache) {
-        cache.put(this, true);
-        var node = document.createElement("span");
-        node.appendChild(document.createTextNode("("));
+    Cons.prototype.toDomNode = function (params) {
+        var node;
+
+        var subelts = [], dottedPair = false, i;
         var p = this;
         while (p instanceof Cons) {
-            node.appendChild(baselib.format.toDomNode(p.first, cache));
+            subelts.push(params.recur(p.first));
             p = p.rest;
-            if (p !== EMPTY) {
-                node.appendChild(document.createTextNode(" "));
-            }
-            if (typeof (p) === 'object' && cache.containsKey(p)) {
+            if (typeof (p) === 'object' && params.containsKey(p)) {
                 break;
             }
         }
         if (p !== EMPTY) {
-            node.appendChild(document.createTextNode("."));
-            node.appendChild(document.createTextNode(" "));
-            node.appendChild(baselib.format.toDomNode(p, cache));
+            dottedPair = true;
+            subelts.push(params.recur(p));
         }
 
+
+        if (params.getMode() === 'constructor') {
+            if (dottedPair) {
+                node = subelts[subelts.length - 1];
+                for (i = subelts.length - 2; i >= 0; i--) {
+                    node = $('<span/>')
+                        .text("(cons ")
+                        .append(subelts[i])
+                        .append(" ")
+                        .append(node)
+                        .append(")").get(0);
+                }
+                return node;
+            } else {
+                node = document.createElement("span");
+                node.appendChild(document.createTextNode("("));
+                node.appendChild(document.createTextNode("list"));
+                node.appendChild(document.createTextNode(" "));
+                node.appendChild(subelts[0]);
+                for (i = 1; i < subelts.length; i++) {
+                    node.appendChild(document.createTextNode(" "));
+                    node.appendChild(subelts[i]);
+                }
+                node.appendChild(document.createTextNode(")"));
+                return node;
+            }
+        }
+
+        node = document.createElement('span');
+        if (params.getMode() === 'print') {
+            node.appendChild(document.createTextNode("'"));
+        }
+        node.appendChild(document.createTextNode("("));
+        node.appendChild(subelts[0]);
+        if (subelts.length > 1) {
+            for (i = 1; i < subelts.length - 1; i++) {
+                node.appendChild(document.createTextNode(" "));
+                node.appendChild(subelts[i]);
+            }
+            if (dottedPair) {
+                node.appendChild(document.createTextNode(" "));
+                node.appendChild(document.createTextNode("."));
+            }
+            node.appendChild(document.createTextNode(" "));
+            node.appendChild(subelts[subelts.length - 1]);
+        }
         node.appendChild(document.createTextNode(")"));
         return node;
     };
@@ -171,6 +238,15 @@
     };
 
 
+    var arrayToList = function (arr) {
+        var result = EMPTY, i;
+        for (i = arr.length -1; i >= 0; i--) {
+            result = makePair(arr[i], result);
+        }
+        return result;
+    };
+
+
     // Coerse a list back into a JavaScript array.
     var listToArray = function (lst) {
         var result = [];
@@ -184,16 +260,30 @@
 
     // isList: Any -> Boolean
     // Returns true if x is a list (a chain of pairs terminated by EMPTY).
-    var isList = function (x) { 
+    var isList = function (x) {
         var tortoise, hare;
         tortoise = hare = x;
-        if (hare === EMPTY) { return true; }
+        if (hare === EMPTY) { 
+            return true; 
+        }
         while (true) {
             if (!(hare instanceof Cons)) { return false; }
-            if (tortoise instanceof Cons) { tortoise = tortoise.rest; }
+            if (tortoise instanceof Cons) { 
+                tortoise = tortoise.rest; 
+            }
             hare = hare.rest;
-            if (hare instanceof Cons) { hare = hare.rest; }
-            if (hare === EMPTY) { return true; }
+            if (hare instanceof Cons) { 
+                // optimization to get amortized linear time isList:
+                if (hare._isList) { tortoise._isList = true; return true; }
+                hare = hare.rest; 
+                // optimization to get amortized linear time isList:
+                if (hare instanceof Cons && hare._isList) { tortoise._isList = true; return true; }
+            }
+            if (hare === EMPTY) { 
+                // optimization to get amortized linear time isList:
+                tortoise._isList = true;
+                return true; 
+            }
             if (tortoise === hare) { return false; }
         }
     };
@@ -244,5 +334,6 @@
     exports.length = length;
     exports.listRef = listRef;
     exports.listToArray = listToArray;
+    exports.arrayToList = arrayToList;
 
 }(this.plt.baselib));

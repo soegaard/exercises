@@ -20,9 +20,9 @@
 (require/typed "compiler-helper.rkt"
                [ensure-const-value (Any -> const-value)])
 
+
 (provide (rename-out [-compile compile])
          compile-general-procedure-call)
-
 
 
 
@@ -397,7 +397,7 @@
         (make-GotoStatement (ModuleEntry a-module-name))
         on-return-multiple
         (make-PopEnvironment (new-SubtractArg (make-Reg 'argcount)
-                                               (make-Const 1))
+                                              (make-Const 1))
                              (make-Const 0))
         on-return))]))
 
@@ -525,13 +525,13 @@
 (: compile-branch (Branch CompileTimeEnvironment Target Linkage -> InstructionSequence))
 ;; Compiles a conditional branch.
 (define (compile-branch exp cenv target linkage)
-  (let: ([f-branch : Symbol (make-label 'falseBranch)]
-         [after-if : Symbol (make-label 'afterIf)])
+  (let: ([f-branch: : Symbol (make-label 'falseBranch)]
+         [after-if: : Symbol (make-label 'afterIf)])
     (let ([consequent-linkage
            (cond
              [(NextLinkage? linkage)
               (let ([context (NextLinkage-context linkage)])
-                (make-LabelLinkage after-if context))]
+                (make-LabelLinkage after-if: context))]
              [(ReturnLinkage? linkage)
               linkage]
              [(LabelLinkage? linkage)
@@ -542,11 +542,12 @@
         (append-instruction-sequences 
          p-code
          (make-TestAndJumpStatement (make-TestFalse (make-Reg 'val))
-                                    f-branch)
+                                    f-branch:)
          c-code
-         f-branch
-         a-code
-         after-if)))))
+         f-branch: a-code
+         (if (NextLinkage? linkage)
+             after-if:
+             empty-instruction-sequence))))))
 
 
 (: compile-sequence ((Listof Expression) CompileTimeEnvironment Target Linkage -> InstructionSequence))
@@ -596,7 +597,7 @@
             (compile (first seq) cenv 'val return-linkage/nontail)
             on-return/multiple
             (make-PopEnvironment (new-SubtractArg (make-Reg 'argcount)
-                                                   (make-Const 1))
+                                                  (make-Const 1))
                                  (make-Const 0))
             on-return
             (compile-splice (rest seq) cenv target linkage)))]))
@@ -660,7 +661,7 @@
               (append-instruction-sequences 
                (make-PopEnvironment (make-Const (length cenv)) 
                                     (new-SubtractArg (make-Reg 'argcount)
-                                                      (make-Const 1)))
+                                                     (make-Const 1)))
                (make-AssignImmediateStatement 'proc (make-ControlStackLabel/MultipleValueReturn))
                (make-PopControlFrame)
                (make-GotoStatement (make-Reg 'proc)))]
@@ -845,7 +846,7 @@
                                             (make-UnspliceRestFromStack! 
                                              (make-Const (Lam-num-parameters exp))
                                              (new-SubtractArg (make-Reg 'argcount)
-                                                               (make-Const (Lam-num-parameters exp)))))
+                                                              (make-Const (Lam-num-parameters exp)))))
                                            empty-instruction-sequence)]
          [maybe-install-closure-values : InstructionSequence
                                        (if (not (empty? (Lam-closure-map exp)))
@@ -951,27 +952,16 @@
       (cond
         [(eq? op-knowledge '?)
          (default)]
-        [(PrimitiveKernelValue? op-knowledge)
-         (let ([id (PrimitiveKernelValue-id op-knowledge)])
+        [(operator-is-statically-known-identifier? op-knowledge)
+         => 
+         (lambda (id)
            (cond
              [(KernelPrimitiveName/Inline? id)
-              (compile-kernel-primitive-application id exp cenv target linkage)]
+              (compile-open-codeable-application id exp cenv target linkage)]
+             [((current-primitive-identifier?) id)
+              (compile-primitive-application exp cenv target linkage)]
              [else
               (default)]))]
-        [(ModuleVariable? op-knowledge)
-         (cond
-           [(symbol=? (ModuleLocator-name
-                       (ModuleVariable-module-name op-knowledge))
-                      '#%kernel)
-            (let ([op (ModuleVariable-name op-knowledge)])
-              (cond [(KernelPrimitiveName/Inline? op)
-                     (compile-kernel-primitive-application 
-                      op
-                      exp cenv target linkage)]
-                    [else
-                     (default)]))]
-           [else
-            (default)])]
         [(StaticallyKnownLam? op-knowledge)
          (compile-statically-known-lam-application op-knowledge exp cenv target linkage)]
         [(Prefix? op-knowledge)
@@ -980,8 +970,40 @@
          (append-instruction-sequences
           (make-AssignImmediateStatement 'proc op-knowledge)
           (make-PerformStatement
-           (make-RaiseOperatorApplicationError! (make-Reg 'proc))))]))))
+           (make-RaiseOperatorApplicationError! (make-Reg 'proc))))]
+        [else
+         (default)]))))
 
+
+(: operator-is-statically-known-identifier? (CompileTimeEnvironmentEntry -> (U False Symbol)))
+(define (operator-is-statically-known-identifier? op-knowledge)
+  (cond [(PrimitiveKernelValue? op-knowledge)
+         (let ([id (PrimitiveKernelValue-id op-knowledge)])
+           id)]
+        [(ModuleVariable? op-knowledge)
+         (cond
+           [(kernel-module-locator? (ModuleVariable-module-name op-knowledge))
+            (ModuleVariable-name op-knowledge)]
+           [else
+            #f])]
+        [else
+         #f]))
+
+
+
+(: kernel-module-locator? (ModuleLocator -> Boolean))
+;; Produces true if the ModuleLocator is pointing to a module that's marked
+;; as kernel.
+(define (kernel-module-locator? a-module-locator)
+  (or (symbol=? (ModuleLocator-name
+                 a-module-locator)
+                '#%kernel)
+      (symbol=? (ModuleLocator-name
+                 a-module-locator)
+                'whalesong/lang/kernel.rkt)))
+
+  
+  
 
 (: compile-general-application (App CompileTimeEnvironment Target Linkage -> InstructionSequence))
 (define (compile-general-application exp cenv target linkage)
@@ -1023,23 +1045,57 @@
                                      linkage))))
 
 
-(: compile-kernel-primitive-application
+
+
+
+
+(: compile-primitive-application (App CompileTimeEnvironment Target Linkage -> InstructionSequence))
+(define (compile-primitive-application exp cenv target linkage)
+  (let* ([extended-cenv
+          (extend-compile-time-environment/scratch-space 
+           cenv 
+           (length (App-operands exp)))]
+         [proc-code (compile (App-operator exp) extended-cenv 'proc next-linkage/expects-single)]
+         [operand-codes (map (lambda: ([operand : Expression]
+                                       [target : Target])
+                               (compile operand
+                                        extended-cenv
+                                        target
+                                        next-linkage/expects-single))
+                             (App-operands exp)
+                             (build-list (length (App-operands exp))
+                                         (lambda: ([i : Natural])
+                                           (make-EnvLexicalReference i #f))))])
+    (append-instruction-sequences
+     (make-PushEnvironment (length (App-operands exp)) #f)
+     (apply append-instruction-sequences operand-codes)
+     proc-code
+     (make-AssignImmediateStatement 'argcount (make-Const (length (App-operands exp))))
+     (compile-primitive-procedure-call cenv 
+                                       (make-Const (length (App-operands exp)))
+                                       target
+                                       linkage))))
+
+
+
+(: compile-open-codeable-application
    (KernelPrimitiveName/Inline App CompileTimeEnvironment Target Linkage -> InstructionSequence))
 ;; This is a special case of application, where the operator is statically
-;; known to be in the set of hardcoded primitives.
+;; known to be in the set of hardcoded primitives, and where we can open-code
+;; the application.
 ;;
 ;; There's a special case optimization we can perform: we can avoid touching
 ;; the stack for constant arguments; rather than allocate (length (App-operands exp))
 ;; stack slots, we can do less than that.
 ;;
 ;; We have to be sensitive to mutation.
-(define (compile-kernel-primitive-application kernel-op exp cenv target linkage)
+(define (compile-open-codeable-application kernel-op exp cenv target linkage)
   (let ([singular-context-check (emit-singular-context linkage)]
         [n (length (App-operands exp))])
-
+    
     (define expected-operand-types
       (kernel-primitive-expected-operand-types kernel-op n))
-
+    
     (: make-runtime-arity-mismatch-code (Arity -> InstructionSequence))
     (define (make-runtime-arity-mismatch-code expected-arity)
       ;; We compile the code to generate a runtime arity error here.
@@ -1067,11 +1123,11 @@
                                 (make-Reg 'proc)
                                 expected-arity
                                 (make-Const n))))))
-
+    
     (cond
       [(IncorrectArity? expected-operand-types)
        (make-runtime-arity-mismatch-code (IncorrectArity-expected expected-operand-types))]
-
+      
       [(not (= n (length expected-operand-types)))
        (make-runtime-arity-mismatch-code (length expected-operand-types))]
       
@@ -1099,7 +1155,7 @@
                          (not (redundant-check? dom known)))
                        expected-operand-types
                        operand-knowledge)]
-
+                 
                  [operand-poss
                   (simple-operands->opargs (map (lambda: ([op : Expression])
                                                   (adjust-expression-depth op n n))
@@ -1244,7 +1300,11 @@
               [(list)
                (list? (Const-const knowledge))]
               [(pair)
-               (pair? (Const-const knowledge))])]
+               (pair? (Const-const knowledge))]
+              [(caarpair)
+               (let ([x (Const-const knowledge)])
+                 (and (pair? x)
+                      (pair? (car x))))])]
            [else
             #f])]))
 
@@ -1404,51 +1464,41 @@
 ;; cenv is the compile-time enviroment before arguments have been shifted in.
 ;; extended-cenv is the compile-time environment after arguments have been shifted in.
 (define (compile-general-procedure-call cenv number-of-arguments target linkage)
-  (let: ([primitive-branch : Symbol (make-label 'primitiveBranch)]
-         [after-call : Symbol (make-label 'afterCall)])
-    (let: ([compiled-linkage : Linkage (if (and (ReturnLinkage? linkage)
-                                                (ReturnLinkage-tail? linkage))
-                                           linkage
-                                           (make-LabelLinkage after-call
-                                                              (linkage-context linkage)))]
-           [primitive-linkage : Linkage
-                              (make-NextLinkage (linkage-context linkage))])
-      (end-with-linkage
-       linkage
-       cenv
-       (append-instruction-sequences
-        ;; (make-TestAndJumpStatement (make-TestPrimitiveProcedure
-        ;;                             (make-Reg 'proc))
-        ;;                            primitive-branch)
-        
-        
-        ;; Compiled branch
-        (make-PerformStatement (make-CheckClosureAndArity!))
-        (compile-compiled-procedure-application cenv
-                                                number-of-arguments
-                                                'dynamic
-                                                target
-                                                compiled-linkage)
-        
-        ;; Primitive branch
-        ;; primitive-branch
-        ;; (make-PerformStatement (make-CheckPrimitiveArity! (make-Reg 'argcount)))
-        ;; (compile-primitive-application cenv target primitive-linkage)
-        after-call)))))
+  (end-with-linkage
+   linkage
+   cenv
+   (append-instruction-sequences
+    (make-PerformStatement (make-CheckClosureAndArity!))
+    (compile-compiled-procedure-application cenv
+                                            number-of-arguments
+                                            'dynamic
+                                            target
+                                            linkage))))
 
 
 
-;; (: compile-primitive-application (CompileTimeEnvironment Target Linkage -> InstructionSequence))
-;; (define (compile-primitive-application cenv target linkage)
-;;   (let ([singular-context-check (emit-singular-context linkage)])
-;;     (append-instruction-sequences
-;;      (make-AssignPrimOpStatement 'val (make-ApplyPrimitiveProcedure))
-;;      (make-PopEnvironment (make-Reg 'argcount)
-;;                           (make-Const 0))
-;;      (if (eq? target 'val)
-;;          empty-instruction-sequence
-;;          (make-AssignImmediateStatement target (make-Reg 'val)))
-;;      singular-context-check)))
+;; If we know the procedure is implemented as a primitive (as opposed to a general closure),
+;; we can do a little less work.
+;; Assumes 1. the procedure value is loaded into proc,
+;;         2. number-of-arguments has been written into the argcount register,
+; ;        3. the number-of-arguments values are on the stack.
+(: compile-primitive-procedure-call (CompileTimeEnvironment OpArg Target Linkage 
+                                                            -> InstructionSequence))
+(define (compile-primitive-procedure-call cenv number-of-arguments target linkage)
+  (end-with-linkage
+   linkage
+   cenv
+   (append-instruction-sequences
+    (make-PerformStatement (make-CheckPrimitiveArity!))
+    (make-AssignPrimOpStatement 'val (make-ApplyPrimitiveProcedure))
+    (make-PopEnvironment number-of-arguments (make-Const 0))
+    (if (eq? target 'val)
+        empty-instruction-sequence
+        (make-AssignImmediateStatement target (make-Reg 'val)))
+    (emit-singular-context linkage))))
+    
+
+
 
 
 
@@ -1545,7 +1595,7 @@
                   nontail-jump-into-procedure
                   on-return/multiple
                   (make-PopEnvironment (new-SubtractArg (make-Reg 'argcount)
-                                                         (make-Const 1))
+                                                        (make-Const 1))
                                        (make-Const 0))
                   on-return)])]
              
@@ -1611,7 +1661,7 @@
            on-return/multiple
            ;; if the wrong number of arguments come in, die
            (make-TestAndJumpStatement (make-TestZero (new-SubtractArg (make-Reg 'argcount)
-                                                                       (make-Const context)))
+                                                                      (make-Const context)))
                                       after-value-check)
            on-return
            (make-PerformStatement
@@ -1680,9 +1730,11 @@
                              (make-EnvLexicalReference 0 #f)
                              next-linkage/expects-single)]
           [after-body-code : Symbol (make-label 'afterLetBody)]
-          [extended-cenv : CompileTimeEnvironment (cons (extract-static-knowledge (Let1-rhs exp)
-                                                                                  (cons '? cenv))
-                                                        cenv)]
+          [extended-cenv : CompileTimeEnvironment 
+                         (cons (extract-static-knowledge (Let1-rhs exp)
+                                                         (cons '? cenv))
+                               cenv)]
+          [context : ValuesContext (linkage-context linkage)]
           [let-linkage : Linkage
                        (cond
                          [(NextLinkage? linkage)
@@ -1694,6 +1746,7 @@
                                  (make-LabelLinkage after-body-code (linkage-context linkage))])]
                          [(LabelLinkage? linkage)
                           (make-LabelLinkage after-body-code (LabelLinkage-context linkage))])]
+
           [body-target : Target (adjust-target-depth target 1)]
           [body-code : InstructionSequence
                      (compile (Let1-body exp) extended-cenv body-target let-linkage)])
@@ -1706,7 +1759,41 @@
       rhs-code
       body-code
       after-body-code
-      (make-PopEnvironment (make-Const 1) (make-Const 0))))))
+
+      
+      ;; We want to clear out the scratch space introduced by the
+      ;; let1.  However, there may be multiple values coming
+      ;; back at this point, from the evaluation of the body.  We
+      ;; look at the context and route around those values
+      ;; appropriate.
+      (cond
+        [(eq? context 'tail)
+         empty-instruction-sequence]
+        [(eq? context 'drop-multiple)
+         (make-PopEnvironment (make-Const 1)
+                              (make-Const 0))]
+        [(eq? context 'keep-multiple)
+         ;; dynamic number of arguments that need
+         ;; to be preserved
+
+         (make-PopEnvironment (make-Const 1)
+                              (new-SubtractArg
+                               (make-Reg 'argcount)
+                               (make-Const 1)))]
+        [else
+         (cond [(= context 0)
+                (make-PopEnvironment (make-Const 1)                                  
+                                     (make-Const 0))]
+               [(= context 1)
+                (make-PopEnvironment (make-Const 1)
+                                     (make-Const 0))]
+               [else
+                ;; n-1 values on stack that we need to route
+                ;; around
+                (make-PopEnvironment (make-Const 1)
+                                     (new-SubtractArg
+                                      (make-Const context)
+                                      (make-Const 1)))])])))))
 
 
 

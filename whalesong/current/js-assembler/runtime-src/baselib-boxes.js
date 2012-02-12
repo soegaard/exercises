@@ -42,18 +42,32 @@
         return "#&" + baselib.format.toDisplayedString(this.val, cache);
     };
 
-    Box.prototype.toDomNode = function(cache) {
-        cache.put(this, true);
-        var parent = document.createElement("span");
-        parent.appendChild(document.createTextNode('#&'));
-        parent.appendChild(baselib.format.toDomNode(this.val, cache));
-        return parent;
+    Box.prototype.toDomNode = function(params) {
+        var node = document.createElement("span");
+        if (params.getMode() === 'constructor') {
+            node.appendChild(document.createTextNode("(box "));
+            node.appendChild(params.recur(this.val));
+            node.appendChild(document.createTextNode(")"));
+        } else {
+            node.appendChild(document.createTextNode('#&'));
+            node.appendChild(params.recur(this.val));
+        }
+        return node;
     };
 
     Box.prototype.equals = function(other, aUnionFind) {
         return ((other instanceof Box) &&
 	        baselib.equality.equals(this.val, other.val, aUnionFind));
     };
+
+    Box.prototype.hashCode = function(depth) {
+        var k = baselib.hashes.getEqualHashCode("Box");
+        k = baselib.hashes.hashMix(k);
+        k += baselib.hashes.getEqualHashCode(this.val, depth);
+        k = baselib.hashes.hashMix(k);
+        return k;
+    };
+
     
     var makeBox = function(x) { 
         return new Box(x, true); 

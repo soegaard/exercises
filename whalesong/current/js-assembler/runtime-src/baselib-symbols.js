@@ -30,6 +30,14 @@
         return other instanceof Symbol &&
             this.val === other.val;
     };
+
+    Symbol.prototype.hashCode = function(depth) {
+        var k = baselib.hashes.getEqualHashCode("Symbol");
+        k = baselib.hashes.hashMix(k);
+        k += baselib.hashes.getEqualHashCode(this.val);
+        k = baselib.hashes.hashMix(k);
+        return k;
+    };
     
 
     Symbol.prototype.toString = function (cache) {
@@ -43,6 +51,28 @@
     Symbol.prototype.toDisplayedString = function (cache) {
         return this.val;
     };
+
+    Symbol.prototype.toDomNode = function(params) {
+        if (params.getMode() === 'write') {
+            return $("<span/>").text(this.val).get(0);
+        }
+        if (params.getMode() === 'display') {
+            return $("<span/>").text(this.val).get(0);
+        }
+        if (params.getMode() === 'print') {
+            if (params.getDepth() === 0) {
+                return $("<span/>").text("'" + this.val).get(0);
+            } else {
+                return $("<span/>").text(this.val).get(0);
+            }
+        }
+        if (params.getMode() === 'constructor') {
+            return $("<span/>").text("'" + this.val).get(0);
+        }
+
+        return $("<span/>").text(this.val).get(0);
+    };
+    
 
 
     var isSymbol = function (x) { return x instanceof Symbol; };

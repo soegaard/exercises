@@ -30,7 +30,8 @@
 	 assemble-location
          assemble-numeric-constant
 
-         block-looks-like-context-expected-values?)
+         block-looks-like-context-expected-values?
+         block-looks-like-pop-multiple-values-and-continue?)
 
 (require/typed typed/racket/base
                [regexp-split (Regexp String -> (Listof String))])
@@ -150,8 +151,7 @@
                (format "RT.makePath(~s)"
                        (path->string val))]
               [(vector? val)
-               (format "RT.makeVector(~a,[~a])"
-                       (vector-length val)
+               (format "RT.makeVector([~a])"
                        (string-join (for/list ([elt (vector->list val)])
                                        (loop elt))
                                     ","))]
@@ -427,6 +427,13 @@
      expected]
     [else
      #f]))
+
+
+(: block-looks-like-pop-multiple-values-and-continue? (BasicBlock -> (U False)))
+(define (block-looks-like-pop-multiple-values-and-continue? a-block)
+  ;; FIXME!
+  #f)
+
 
 
 

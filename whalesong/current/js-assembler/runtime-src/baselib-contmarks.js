@@ -1,5 +1,5 @@
 /*global plt*/
-/*jslint browser: true, unparam: true, vars: true, white: true, maxerr: 50, indent: 4 */
+/*jslint browser: true, unparam: true, vars: true, white: true, maxerr: 50, indent: 4 , plusplus: true */
 
 // Continuation marks
 (function(baselib) {
@@ -12,7 +12,12 @@
         this.kvlists = kvlists;
     };
 
-    ContinuationMarkSet.prototype.toDomNode = function(cache) {
+
+    ContinuationMarkSet.prototype.shift = function() {
+        this.kvlists.shift();
+    };
+
+    ContinuationMarkSet.prototype.toDomNode = function(params) {
         var dom = document.createElement("span");
         dom.appendChild(document.createTextNode('#<continuation-mark-set>'));
         return dom;
@@ -38,10 +43,8 @@
                 }
             }
         }
-        return baselib.lists.makeList.apply(null, result);
+        return baselib.lists.arrayToList(result);
     };
-
-
 
     // Returns an approximate stack trace.
     // getContext: MACHINE -> (arrayof (U Procedure (Vector source line column position span)))
@@ -72,20 +75,29 @@
     };
 
 
+    var isContinuationMarkSet = baselib.makeClassPredicate(ContinuationMarkSet);
+
+
 
 
 
     // A continuation prompt tag labels a prompt frame.
     var ContinuationPromptTag = function(name) {
-	this.name = name;
+	this.name = name;         // String
+
     };
 
 
+    var isContinuationPromptTag = baselib.makeClassPredicate(ContinuationPromptTag);
 
-
+    var DEFAULT_CONTINUATION_PROMPT_TAG =
+        new ContinuationPromptTag("default-continuation-prompt-tag");
 
 
     exports.ContinuationMarkSet = ContinuationMarkSet;
+    exports.isContinuationMarkSet = isContinuationMarkSet;
     exports.ContinuationPromptTag = ContinuationPromptTag;
 
+    exports.isContinuationPromptTag = isContinuationPromptTag;
+    exports.DEFAULT_CONTINUATION_PROMPT_TAG = DEFAULT_CONTINUATION_PROMPT_TAG;
 }(this.plt.baselib));

@@ -9,6 +9,11 @@ Install and Run
 3. Open build/stxmat-exercises.xhtml in your browser.
 4. Enjoy
 
+Current Versions
+----------------
+Racket     5.2.1                   (Feb, 2012)
+Whalesong  dyoo-whalesong-b7ca540  (Feb 10th, 2012) 
+
 
 Goals
 -----

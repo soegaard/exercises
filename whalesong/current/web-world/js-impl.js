@@ -42,11 +42,19 @@
 
 
 
-
-
-
-
-
+    var shallowCloneNode = function(node) {
+        var result = node.cloneNode(false);
+        var i;
+        // copy over the attributes as well
+        if (node.attributes) {
+            for (i = 0; i < node.attributes.length; i++) {
+                $(result).attr(node.attributes[i].name,
+                               node.attributes[i].value);
+            }
+        }
+        $(result).data($(node).data());
+        return result;
+    };
 
 
 
@@ -66,7 +74,7 @@
 
 
     var arrayTreeToDomNode = function(tree) {
-        var result = tree[0].cloneNode(false);
+        var result = shallowCloneNode(tree[0]);
         var i;
         for (i = 1; i < tree.length; i++) {
             result.appendChild(arrayTreeToDomNode(tree[i]));
@@ -90,7 +98,7 @@
             function(tree) {
                 return tree[0].nodeType !== 1;
             };
-        return TreeCursor.adaptTreeCursor(domNodeToArrayTree(dom.cloneNode(true)),
+        return TreeCursor.adaptTreeCursor(domNodeToArrayTree($(dom).clone(true).get(0)),
                                           domOpenF,
                                           domCloseF,
                                           domAtomicF);
@@ -204,14 +212,18 @@
     };
 
     MockView.prototype.getAttr = function(name) {        
-        return this.cursor.node[0].getAttribute(name);
+        return $(this.cursor.node[0]).attr(name);
+    };
+
+    MockView.prototype.hasAttr = function(name) {        
+        return $(this.cursor.node[0]).attr(name) !== undefined;
     };
 
 
     MockView.prototype.updateAttr = function(name, value) {
         return this.act(
             function(cursor) {
-                return cursor.replaceNode([$(cursor.node[0].cloneNode(false))
+                return cursor.replaceNode([$(shallowCloneNode(cursor.node[0]))
                                            .attr(name, value).get(0)]
                                           .concat(cursor.node.slice(1)));
             },
@@ -222,6 +234,22 @@
                 $(view.focus).attr(name, value);
             });
     };
+
+    MockView.prototype.removeAttr = function(name) {
+        return this.act(
+            function(cursor) {
+                return cursor.replaceNode([$(shallowCloneNode(cursor.node[0]))
+                                           .removeAttr(name).get(0)]
+                                          .concat(cursor.node.slice(1)));
+            },
+            function(eventHandlers) {
+                return eventHandlers;
+            },
+            function(view) {
+                $(view.focus).removeAttr(name);
+            });
+    };
+
 
 
 
@@ -235,7 +263,7 @@
     MockView.prototype.updateCss = function(name, value) {
         return this.act(
             function(cursor) {
-                return cursor.replaceNode([$(cursor.node[0].cloneNode(false))
+                return cursor.replaceNode([$(shallowCloneNode(cursor.node[0]))
                                            .css(name, value).get(0)]
                                           .concat(cursor.node.slice(1)));
             },
@@ -256,7 +284,7 @@
     MockView.prototype.updateFormValue = function(value) {        
         return this.act(
             function(cursor) {
-                return cursor.replaceNode([$(cursor.node[0].cloneNode(false))
+                return cursor.replaceNode([$(shallowCloneNode(cursor.node[0]))
                                            .val(value).get(0)]
                                           .concat(cursor.node.slice(1)));
             },
@@ -419,7 +447,7 @@
     MockView.prototype.show = function() {
         return this.act(
             function(cursor) {
-                return cursor.replaceNode([$(cursor.node[0].cloneNode(false))
+                return cursor.replaceNode([$(shallowCloneNode(cursor.node[0]))
                                            .show().get(0)]
                                           .concat(cursor.node.slice(1)));
             },
@@ -433,7 +461,7 @@
     MockView.prototype.hide = function() {
         return this.act(
             function(cursor) {
-                return cursor.replaceNode([$(cursor.node[0].cloneNode(false))
+                return cursor.replaceNode([$(shallowCloneNode(cursor.node[0]))
                                            .hide().get(0)]
                                           .concat(cursor.node.slice(1)));
             },
@@ -565,18 +593,36 @@
 
     View.prototype.toString = function() { return "#<View>"; };
 
-    View.prototype.initialRender = function(top) {
-        $(top).empty();
-        // Special case: if this.top is an html, we merge into the
-        // existing page.
-        if ($(this.top).children("title").length !== 0) {
-             $(document.head).find('title').remove();
-        }
-        $(document.head).append($(this.top).children("title"));
-        $(document.head).append($(this.top).children("link"));
 
-        $(top).append(this.top);
-    };
+    var defaultToRender = function(){};
+ 
+   View.prototype.initialRender = function(top) {
+       $(top).empty();
+       // Special case: if this.top is an html, we merge into the
+       // existing page.
+       if ($(this.top).children("title").length !== 0) {
+           $(document.head).find('title').remove();
+       }
+       $(document.head).append($(this.top).children("title").clone(true));
+       $(document.head).append($(this.top).children("link").clone(true));
+       
+       $(top).append($(this.top));
+
+       // The snip here is meant to accomodate weirdness with canvas dom
+       // elements.  cloning a canvas doesn't preserve how it draws.
+       // However, we attach a toRender using jQuery's data(), which does
+       // do the preservation we need.  On an initial render, we walk
+       // through all the elements and toRender them.
+
+       // It may be that this will deprecate the afterAttach stuff
+       // that I'm using earlier.
+       ($(this.top).data('toRender') || defaultToRender)();
+       $('*', this.top).each(
+           function(index, elt) {
+               ($(elt).data('toRender') || defaultToRender).call(elt);
+           });
+   };
+
 
     View.prototype.addEventHandler = function(handler) {
         this.eventHandlers.push(handler);
@@ -610,11 +656,24 @@
 
 
 
+    var rscript = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi;
 
+    // We have to do some kludgery to support the android browser,
+    // which does not properly parse <link ...>.
+    var rlink = /<link\b[^\/>]* \/>(.*?)/gi;
 
     var parseStringAsHtml = function(str) {
-        var dom = $('<div/>').append($(str));
-        return dom;
+        var div = document.createElement("div");
+        // inject the contents of the document in, removing the scripts
+	// to avoid any 'Permission Denied' errors in IE
+        div.innerHTML = str.replace(rscript, "").replace(rlink, "");
+        var linkMatches = str.match(rlink);
+        if (linkMatches) {
+            for (var i = 0; i < linkMatches.length; i++) {
+                $(div).append($(linkMatches[i]));
+            }
+        }
+        return $(div);
     };
 
  
@@ -832,7 +891,7 @@
                 }                         
             }
         }
-        return eventStructType.constructor(result);
+        return eventStructType.constructor([result]);
     };
 
 
@@ -949,6 +1008,7 @@
     LocationEventSource.prototype = plt.baselib.heir(EventSource.prototype);
 
     LocationEventSource.prototype.onStart = function(fireEvent) {
+        var that = this;
         if (this.id === undefined) {
             var success = function(position) {
                 if (position.hasOwnProperty &&
@@ -964,9 +1024,22 @@
             var fail = function(err) {
                 // Quiet failure
             };
+            // If we fail while trying to watch the position
+            // using high accuracy, switch over to the coarse one.
+            var onFailSwitchoverToCoerse = function() {
+                navigator.geolocation.clearWatch(that.id);
+                that.id = navigator.geolocation.watchPosition(
+                    success,
+                    fail);
+            };
             if (!!(navigator.geolocation)) {
                 navigator.geolocation.getCurrentPosition(success, fail);
-                this.id = navigator.geolocation.watchPosition(success, fail); 
+                this.id = navigator.geolocation.watchPosition(
+                    success,
+                    onFailSwitchoverToCoerse,
+                    { enableHighAccuracy : true,
+                      // Try every ten seconds
+                      maximumAge : 10000}); 
             }
         }
     };
@@ -977,11 +1050,6 @@
             this.id = undefined;
         }
     };
-
-
-
-
-
 
 
 
@@ -1065,7 +1133,9 @@
 
 
     var defaultToDraw = function(MACHINE, world, view, success, fail) {
-        return success(view);
+        coerseToMockView(world,
+                         success,
+                         fail);
     };
 
 
@@ -1076,15 +1146,16 @@
 
     // bigBang.
     var bigBang = function(MACHINE, world, handlers) {
-        var oldArgcount = MACHINE.a;
         var oldCurrentBigBangRecord = currentBigBangRecord;
 
         var running = true;
         var dispatchingEvents = false;
 
         var top = $("<div/>").get(0);
-        var view = (find(handlers, isInitialViewHandler) || { view : new View(top, []) }).view;
-        var stopWhen = (find(handlers, isStopWhenHandler) || { stopWhen: defaultStopWhen }).stopWhen;
+        var view = (find(handlers, isInitialViewHandler) ||
+                    { view : new View($('<div/>').get(0), []) }).view;
+        var stopWhen = (find(handlers, isStopWhenHandler) ||
+                        { stopWhen: defaultStopWhen }).stopWhen;
         var toDraw = (find(handlers, isToDrawHandler) || {toDraw : defaultToDraw} ).toDraw;
 
         var oldOutputPort = MACHINE.params.currentOutputPort;
@@ -1100,7 +1171,7 @@
             MACHINE.params.currentOutputPort = find(handlers, isWithOutputToHandler).outputPort;
         }
 
-        PAUSE(function(restart) {
+        PAUSE(function(restart, internalCall) {
             var onCleanRestart, onMessyRestart, 
             startEventHandlers, stopEventHandlers, 
             startEventHandler, stopEventHandler,
@@ -1110,7 +1181,6 @@
                 running = false;
                 stopEventHandlers();
                 restart(function(MACHINE) {
-                    MACHINE.a = oldArgcount;
                     MACHINE.params.currentOutputPort = oldOutputPort;
                     currentBigBangRecord = oldCurrentBigBangRecord;
                     finalizeClosureCall(MACHINE, world);
@@ -1190,7 +1260,7 @@
                     var onGoodWorldUpdate = 
                         function(newWorld) {
                             world = newWorld;
-                            stopWhen(MACHINE,
+                            stopWhen(internalCall,
                                      world,
                                      mockView,
                                      function(shouldStop) {
@@ -1204,14 +1274,14 @@
                                      fail);
                         };
                     if (plt.baselib.arity.isArityMatching(racketWorldCallback.racketArity, 3)) {
-                        racketWorldCallback(MACHINE, 
+                        racketWorldCallback(internalCall, 
                                             world,
                                             mockView,
                                             data,
                                             onGoodWorldUpdate,
                                             fail);
                     } else {
-                        racketWorldCallback(MACHINE, 
+                        racketWorldCallback(internalCall, 
                                             world,
                                             mockView,
                                             onGoodWorldUpdate,
@@ -1229,7 +1299,7 @@
                 // update, and have to do it from scratch.
                 var nonce = Math.random();
                 var originalMockView = view.getMockAndResetFocus(nonce);
-                toDraw(MACHINE, 
+                toDraw(internalCall, 
                        world,
                        originalMockView,
                        function(newMockView) {
@@ -1264,15 +1334,14 @@
     };
 
     var wrapFunction = function(proc) {
-        var f = function(MACHINE) {
+        var f = function(internalCall) {
             var success = arguments[arguments.length - 2];
             var fail = arguments[arguments.length - 1];
             var args = [].slice.call(arguments, 1, arguments.length - 2);
-            return plt.baselib.functions.internalCallDuringPause.apply(null,
-                                                                       [MACHINE,
-                                                                        proc,
-                                                                        success,
-                                                                        fail].concat(args));
+            return internalCall.apply(null,
+                                      [proc,
+                                       success,
+                                       fail].concat(args));
         };
         f.racketArity = proc.racketArity;
         return f;
@@ -1324,6 +1393,27 @@
 
 
 
+    // We keep a cache of valid element names.  The only keys here are
+    // those elements whose names are valid.  We don't record invalid
+    // ones, since there's an unbound number of those.
+    var validElementNames = {};  
+    var isValidElementName = function(name) {
+        if (! (validElementNames.hasOwnProperty(name))) {
+            // Permissive parsing: see that the name is a valid
+            // element type.
+            // Is there a nicer way to do this besides exception
+            // handling?
+            try {
+                document.createElement(name);
+                validElementNames[name] = true;
+            } catch(e) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+
     // An xexp is one of the following:
     // xexp :== (name (@ (key value) ...) xexp ...)
     //      :== (name xexp ...)
@@ -1338,6 +1428,10 @@
         }
         if (isList(x) && !(isEmpty(x))) {
             if (isSymbol(x.first)) {
+                if (! isValidElementName(x.first.val)) {
+                    return false;
+                }
+
                 children = x.rest;
                 // Check the rest of the children.  The first is special.
                 if (isEmpty(children)) {
@@ -1508,6 +1602,11 @@
     var checkMockView = plt.baselib.check.makeCheckArgumentType(
         isMockView, 'view');
 
+    var checkMockViewOnElement = plt.baselib.check.makeCheckArgumentType(
+        function(x) {
+            return isMockView(x) && (!(x.cursor.isOnAtomicElement()));
+        },
+        'element-focused view');
 
 
     var checkSelector = plt.baselib.check.makeCheckArgumentType(
@@ -1536,26 +1635,31 @@
         1,
         function(MACHINE) {
             var viewable = MACHINE.e[MACHINE.e.length - 1];
-            var oldArgcount = MACHINE.a;
             PAUSE(function(restart) {
                 coerseToView(viewable,
                              function(v) {
                                  restart(function(MACHINE) {
-                                     MACHINE.a = oldArgcount;
                                      finalizeClosureCall(MACHINE,
                                                          new InitialViewHandler(v));
                                  });
                              },
                              function(exn) {
                                  restart(function(MACHINE) {
-                                     plt.baselib.exceptions.raise(
+                                     plt.baselib.exceptions.raiseFailure(
                                          MACHINE, 
-                                         new Error(plt.baselib.format.format(
+                                         plt.baselib.format.format(
                                              "unable to translate ~s to view: ~a",
-                                             [viewable, exn.message])));
+                                             [viewable, exn.message]));
                                  });
                              });
             });
+        });
+
+    EXPORTS['view?'] = makePrimitiveProcedure(
+        'view?',
+        1,
+        function(M) {
+            return isMockView(M.e[M.e.length - 1]);
         });
 
 
@@ -1564,22 +1668,20 @@
         1,
         function(MACHINE) {
             var viewable = MACHINE.e[MACHINE.e.length - 1];
-            var oldArgcount = MACHINE.a;
             PAUSE(function(restart) {
                 coerseToMockView(viewable,
                                  function(v) {
                                      restart(function(MACHINE) {
-                                         MACHINE.a = oldArgcount;
                                          finalizeClosureCall(MACHINE, v);
                                      });
                                  },
                                  function(exn) {
                                      restart(function(MACHINE) {
-                                         plt.baselib.exceptions.raise(
+                                         plt.baselib.exceptions.raiseFailure(
                                              MACHINE, 
-                                             new Error(plt.baselib.format.format(
+                                             plt.baselib.format.format(
                                                  "unable to translate ~s to view: ~a",
-                                                 [viewable, exn.message])));
+                                                 [viewable, exn.message]));
                                      });
                                  });
             });
@@ -1648,11 +1750,11 @@
             try {
                 return view.updateFocus(selector);
             } catch (e) {
-                plt.baselib.exceptions.raise(
+                plt.baselib.exceptions.raiseFailure(
                     MACHINE, 
-                    new Error(plt.baselib.format.format(
+                    plt.baselib.format.format(
                         "unable to focus to ~s: ~s",
-                        [selector, e.message])));
+                        [selector, e.message]));
             }
         });
 
@@ -1662,7 +1764,13 @@
         1,
         function(MACHINE) {
             var view = checkMockView(MACHINE, 'view-left', 0);
-            return view.left();
+            try {
+                return view.left();
+            } catch (e) {
+                plt.baselib.exceptions.raiseFailure(
+                    MACHINE, 
+                    "unable to focus left");
+            }
         });
 
     EXPORTS['view-right'] = makePrimitiveProcedure(
@@ -1670,7 +1778,13 @@
         1,
         function(MACHINE) {
             var view = checkMockView(MACHINE, 'view-right', 0);
-            return view.right();
+            try {
+                return view.right();
+            } catch (e) {
+                plt.baselib.exceptions.raiseFailure(
+                    MACHINE, 
+                    "unable to focus right");
+            }
         });
 
     EXPORTS['view-up'] = makePrimitiveProcedure(
@@ -1678,7 +1792,13 @@
         1,
         function(MACHINE) {
             var view = checkMockView(MACHINE, 'view-up', 0);
-            return view.up();
+            try {
+                return view.up();
+            } catch (e) {
+                plt.baselib.exceptions.raiseFailure(
+                    MACHINE, 
+                    "unable to focus up");
+            }
         });
 
     EXPORTS['view-down'] = makePrimitiveProcedure(
@@ -1686,7 +1806,13 @@
         1,
         function(MACHINE) {
             var view = checkMockView(MACHINE, 'view-down', 0);
-            return view.down();
+            try {
+                return view.down();
+            } catch(e) {
+                plt.baselib.exceptions.raiseFailure(
+                    MACHINE, 
+                    "unable to focus down");
+            }
         });
 
     EXPORTS['view-forward'] = makePrimitiveProcedure(
@@ -1694,7 +1820,13 @@
         1,
         function(MACHINE) {
             var view = checkMockView(MACHINE, 'view-forward', 0);
-            return view.forward();
+            try {
+                return view.forward();
+            } catch(e) {
+                plt.baselib.exceptions.raiseFailure(
+                    MACHINE, 
+                    "unable to focus forward");
+            } 
         });
 
     EXPORTS['view-backward'] = makePrimitiveProcedure(
@@ -1702,7 +1834,13 @@
         1,
         function(MACHINE) {
             var view = checkMockView(MACHINE, 'view-backward', 0);
-            return view.backward();
+            try {
+                return view.backward();
+            } catch(e) {
+                plt.baselib.exceptions.raiseFailure(
+                    MACHINE, 
+                    "unable to focus backward");
+            }
         });
 
 
@@ -1757,11 +1895,6 @@
 
 
 
-
-
-
-
-
     EXPORTS['view-text'] = makePrimitiveProcedure(
         'view-text',
         1,
@@ -1787,28 +1920,44 @@
         'view-attr',
         2,
         function(MACHINE) {
-            var view = checkMockView(MACHINE, 'view-attr', 0);
+            var view = checkMockViewOnElement(MACHINE, 'view-attr', 0);
             var name = checkSymbolOrString(MACHINE, 'view-attr', 1).toString();
             return view.getAttr(name);
         });
 
+    EXPORTS['view-has-attr?'] = makePrimitiveProcedure(
+        'view-has-attr?',
+        2,
+        function(MACHINE) {
+            var view = checkMockViewOnElement(MACHINE, 'view-has-attr?', 0);
+            var name = checkSymbolOrString(MACHINE, 'view-has-attr?', 1).toString();
+            return view.hasAttr(name);
+        });
 
     EXPORTS['update-view-attr'] = makePrimitiveProcedure(
         'update-view-attr',
         3,
         function(MACHINE) {
-            var view = checkMockView(MACHINE, 'update-view-attr', 0);
+            var view = checkMockViewOnElement(MACHINE, 'update-view-attr', 0);
             var name = checkSymbolOrString(MACHINE, 'update-view-attr', 1).toString();
             var value = checkSymbolOrString(MACHINE, 'update-view-attr', 2).toString();
             return view.updateAttr(name, value);
         });
 
+    EXPORTS['remove-view-attr'] = makePrimitiveProcedure(
+        'remove-view-attr',
+        2,
+        function(MACHINE) {
+            var view = checkMockViewOnElement(MACHINE, 'remove-view-attr', 0);
+            var name = checkSymbolOrString(MACHINE, 'remove-view-attr', 1).toString();
+            return view.removeAttr(name);
+        });
 
     EXPORTS['view-css'] = makePrimitiveProcedure(
         'view-css',
         2,
         function(MACHINE) {
-            var view = checkMockView(MACHINE, 'view-css', 0);
+            var view = checkMockViewOnElement(MACHINE, 'view-css', 0);
             var name = checkSymbolOrString(MACHINE, 'view-css', 1).toString();
             return view.getCss(name);
         });
@@ -1825,14 +1974,11 @@
         });
 
 
-
-
-
     EXPORTS['view-bind'] = makePrimitiveProcedure(
         'view-bind',
         3,
         function(MACHINE) {
-            var view = checkMockView(MACHINE, 'view-bind', 0);
+            var view = checkMockViewOnElement(MACHINE, 'view-bind', 0);
             var name = checkSymbolOrString(MACHINE, 'view-bind', 1);
             var worldF = wrapFunction(checkProcedure(MACHINE, 'view-bind', 2));
             return view.bind(name, worldF);
@@ -1843,7 +1989,7 @@
         'view-form-value',
         1,
         function(MACHINE) {
-            var view = checkMockView(MACHINE, 'view-form-value', 0);
+            var view = checkMockViewOnElement(MACHINE, 'view-form-value', 0);
             return view.getFormValue();
         });
 
@@ -1852,7 +1998,7 @@
         'update-view-form-value',
         2,
         function(MACHINE) {
-            var view = checkMockView(MACHINE, 'update-view-form-value', 0);
+            var view = checkMockViewOnElement(MACHINE, 'update-view-form-value', 0);
             var value = checkSymbolOrString(MACHINE, 'update-view-form-value', 1).toString();
             return view.updateFormValue(value);
         });
@@ -1889,25 +2035,23 @@
         'view-append-child',
         2,
         function(MACHINE) {
-            var view = checkMockView(MACHINE, 'view-append-child', 0);
-            var oldArgcount = MACHINE.a;
+            var view = checkMockViewOnElement(MACHINE, 'view-append-child', 0);
             var x = MACHINE.e[MACHINE.e.length - 2];
             PAUSE(function(restart) {
                 coerseToDomNode(x,
                                 function(dom) {
                                      restart(function(MACHINE) {
-                                         MACHINE.a = oldArgcount;
                                          var updatedView = view.appendChild(dom);
                                          finalizeClosureCall(MACHINE, updatedView);
                                      });
                                 },
                                 function(err) {
                                     restart(function(MACHINE) {
-                                         plt.baselib.exceptions.raise(
+                                         plt.baselib.exceptions.raiseFailure(
                                              MACHINE, 
-                                             new Error(plt.baselib.format.format(
+                                             plt.baselib.format.format(
                                                  "unable to translate ~s to dom node: ~a",
-                                                 [x, err.message])));
+                                                 [x, err.message]));
                                         
                                     });
                                 });
@@ -1920,24 +2064,22 @@
         2,
         function(MACHINE) {
             var view = checkMockView(MACHINE, 'view-insert-right', 0);
-            var oldArgcount = MACHINE.a;
             var x = MACHINE.e[MACHINE.e.length - 2];
             PAUSE(function(restart) {
                 coerseToDomNode(x,
                                 function(dom) {
                                      restart(function(MACHINE) {
-                                         MACHINE.a = oldArgcount;
                                          var updatedView = view.insertRight(dom);
                                          finalizeClosureCall(MACHINE, updatedView);
                                      });
                                 },
                                 function(err) {
                                     restart(function(MACHINE) {
-                                         plt.baselib.exceptions.raise(
+                                         plt.baselib.exceptions.raiseFailure(
                                              MACHINE, 
-                                             new Error(plt.baselib.format.format(
+                                             plt.baselib.format.format(
                                                  "unable to translate ~s to dom node: ~a",
-                                                 [x, err.message])));
+                                                 [x, err.message]));
                                         
                                     });
                                 });
@@ -1952,24 +2094,22 @@
         2,
         function(MACHINE) {
             var view = checkMockView(MACHINE, 'view-insert-left', 0);
-            var oldArgcount = MACHINE.a;
             var x = MACHINE.e[MACHINE.e.length - 2];
             PAUSE(function(restart) {
                 coerseToDomNode(x,
                                 function(dom) {
                                      restart(function(MACHINE) {
-                                         MACHINE.a = oldArgcount;
                                          var updatedView = view.insertLeft(dom);
                                          finalizeClosureCall(MACHINE, updatedView);
                                      });
                                 },
                                 function(err) {
                                     restart(function(MACHINE) {
-                                         plt.baselib.exceptions.raise(
+                                         plt.baselib.exceptions.raiseFailure(
                                              MACHINE, 
-                                             new Error(plt.baselib.format.format(
+                                             plt.baselib.format.format(
                                                  "unable to translate ~s to dom node: ~a",
-                                                 [x, err.message])));
+                                                 [x, err.message]));
                                         
                                     });
                                 });
@@ -1982,7 +2122,7 @@
         'view-id',
         1,
         function(MACHINE) {
-            var view = checkMockView(MACHINE, 'view-hide', 0);
+            var view = checkMockViewOnElement(MACHINE, 'view-hide', 0);
             return view.id();
         });
 

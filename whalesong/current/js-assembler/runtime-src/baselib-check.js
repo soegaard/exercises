@@ -10,6 +10,7 @@
 
     var EMPTY = baselib.lists.EMPTY;
     var isPair = baselib.lists.isPair;
+    var isList = baselib.lists.isList;
     var makeLowLevelEqHash = baselib.hashes.makeLowLevelEqHash;
 
 
@@ -75,26 +76,14 @@
 
     var makeCheckListofArgumentType = function (predicate, predicateName) {
         var listPredicate = function (x) {
-            var seen = makeLowLevelEqHash();
+            if (! isList(x)) { return false; }
             while (true) {
                 if (x === EMPTY){
                     return true;
                 }
-
-                if (!isPair(x)) {
-                    return false;
-                }
-
-                if(seen.containsKey(x)) {
-                    // raise an error? we've got a cycle!
-                    return false;
-                }
-
                 if (! predicate(x.first)) {
                     return false;
                 }
-                
-                seen.put(x, true);
                 x = x.rest;
             }
         };
@@ -120,10 +109,10 @@
             baselib.exceptions.raise(
                 MACHINE, 
                 baselib.exceptions.ExnFailContractArity.constructor(
-                    callerName + ": expected at least " + minimum
-                        + " arguments "
-                        + " but received " + observed,
-                    MACHINE.captureContinuationMarks()));
+                    [callerName + ": expected at least " + minimum
+                     + " arguments "
+                     + " but received " + observed,
+                     MACHINE.captureContinuationMarks()]));
         }
     };
 
@@ -133,6 +122,10 @@
     var checkOutputPort = makeCheckArgumentType(
         baselib.ports.isOutputPort,
         'output port');
+
+    var checkInputPort = makeCheckArgumentType(
+        baselib.ports.isInputPort,
+        'input port');
 
     var checkSymbol = makeCheckArgumentType(
         baselib.symbols.isSymbol,
@@ -206,7 +199,7 @@
         'pair');
 
     var checkList = makeCheckArgumentType(
-        baselib.lists.isList,
+        isList,
         'list');
 
     var checkVector = makeCheckArgumentType(
@@ -239,6 +232,38 @@
         baselib.srclocs.isSrcloc,
         'srcloc');
 
+    var checkContinuationMarkSet = makeCheckArgumentType(
+        baselib.contmarks.isContinuationMarkSet,
+        'continuation mark set');
+
+    var checkContinuationPromptTag = makeCheckArgumentType(
+        baselib.contmarks.isContinuationPromptTag,
+        'continuation prompt tag');
+
+    var checkExn = makeCheckArgumentType(
+        baselib.exceptions.isExn,
+        'exn');
+
+    var checkHash = makeCheckArgumentType(
+        baselib.hashes.isHash,
+        'hash');
+    var checkHasheq = makeCheckArgumentType(
+        baselib.hashes.isHasheq,
+        'hash');
+    var checkHasheqv = makeCheckArgumentType(
+        baselib.hashes.isHasheqv,
+        'hash');
+    var checkMutableHash = makeCheckArgumentType(
+        function(x) { return baselib.hashes.isHash(x) && ! x.isImmutable()},
+        'mutable hash');
+    var checkImmutableHash = makeCheckArgumentType(
+        function(x) { return baselib.hashes.isHash(x) && x.isImmutable()},
+        'immutable hash');
+
+
+
+
+
 
     //////////////////////////////////////////////////////////////////////
 
@@ -248,8 +273,8 @@
     exports.makeCheckArgumentType = makeCheckArgumentType;
     exports.makeCheckParameterizedArgumentType = makeCheckParameterizedArgumentType;
     exports.makeCheckListofArgumentType = makeCheckListofArgumentType;
-
     exports.checkOutputPort = checkOutputPort;
+    exports.checkInputPort = checkInputPort;
     exports.checkSymbol = checkSymbol;
     exports.checkString = checkString;
     exports.checkSymbolOrString = checkSymbolOrString;
@@ -275,5 +300,11 @@
     exports.checkBoolean = checkBoolean;
     exports.checkPlaceholder = checkPlaceholder;
     exports.checkSrcloc = checkSrcloc;
+    exports.checkContinuationMarkSet = checkContinuationMarkSet;
+    exports.checkContinuationPromptTag = checkContinuationPromptTag;
+    exports.checkExn = checkExn;
+    exports.checkHash = checkHash;
+    exports.checkImmutableHash = checkImmutableHash;
+    exports.checkMutableHash = checkMutableHash;
 
 }(this.plt.baselib));

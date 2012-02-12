@@ -2,8 +2,9 @@
 
 (define name "Whalesong")
 (define blurb '("A Racket to JavaScript compiler"))
-(define release-notes '((p "Starting to stabilize.  Fixed several browser compatiblity issues, reduced size of .js files, and added more features to the web-world library")))
-(define version "0.04")
+(define release-notes '((p "Bug fix: corrected issue 73 and 74.  (https://github.com/dyoo/whalesong/issues/73).  Some micro-optimizations to improve speed of struct construction.")))
+(define version "1.14")
+(define primary-file "make-launcher.rkt")
 (define categories '(devtools))
 (define repositories '("4.x"))
 (define required-core-version "5.1.1")
@@ -20,6 +21,7 @@
 (define homepage "http://hashcollision.org/whalesong")
 (define scribblings '(("scribblings/manual.scrbl")))
 (define compile-omit-paths '("tests"
+                             "sandbox"
                              "examples"
                              "experiments"
                              "simulator"

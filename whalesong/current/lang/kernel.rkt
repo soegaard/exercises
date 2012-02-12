@@ -2,6 +2,7 @@
 (require (prefix-in racket: (only-in racket/math pi sinh cosh sqr
                                      sgn conjugate))
          (prefix-in racket: racket/base)
+         racket/provide
 	 racket/local
 	 (for-syntax racket/base)
          racket/stxparam
@@ -25,6 +26,15 @@
 ;; constants
 (define pi racket:pi)
 (define e (racket:exp 1))
+
+
+(define my-current-print-mode "write")
+(define current-print-mode
+  (case-lambda
+    [() my-current-print-mode]
+    [(v) (set! my-current-print-mode v)]))
+
+(provide current-print-mode)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -71,6 +81,7 @@
 (provide pi
          e
          null
+         eof
          #%plain-module-begin
 	 #%module-begin
 	 #%datum
@@ -114,13 +125,22 @@
 	 begin-for-syntax
 	 prefix-in
 	 only-in
+         rename-in
+         except-in
 	 provide
 	 planet
 	 all-defined-out
 	 all-from-out
+         prefix-out
 	 except-out
 	 rename-out
 	 struct-out
+         filtered-out
+         combine-in
+         protect-out
+         combine-out
+
+         
          define-syntax-rule
 	 define-syntax
 	 define-syntaxes
@@ -129,8 +149,27 @@
          let/cc
 	 with-continuation-mark
 
-
-         
+         hash?
+         hash-equal?
+         hash-eq?
+         hash-eqv?
+         hash
+         hasheqv
+         hasheq
+         make-hash
+         make-hasheqv
+         make-hasheq
+         make-immutable-hash
+         make-immutable-hasheqv
+         make-immutable-hasheq
+         hash-copy
+         hash-ref
+         hash-set!
+         hash-set
+         hash-remove!
+         hash-remove
+         equal-hash-code
+         hash-count
 
 
          ;; Kernel inlinable
@@ -171,7 +210,26 @@
          srcloc-line
          srcloc-column
          srcloc-position
-         srcloc-span)
+         srcloc-span
+
+
+         make-struct-type
+         make-struct-field-accessor
+         make-struct-field-mutator
+         struct-type?
+
+         exn:fail
+         struct:exn:fail
+         prop:exn:srclocs
+
+
+         current-inexact-milliseconds
+         current-seconds
+         
+         
+         ;; needed for cs019-local
+         #%stratified-body
+         )
 
 
 (define (-identity x) x)
@@ -188,6 +246,9 @@
 
  current-output-port
  current-print 
+
+
+
  write
  write-byte
  display
@@ -195,15 +256,11 @@
  displayln
 
  
-;;  current-continuation-marks
+ current-continuation-marks
 
 ;;  continuation-mark-set?
 ;;  continuation-mark-set->list
 
-;;  make-struct-type
-;;  make-struct-field-accessor
-;;  make-struct-field-mutator
-;;  struct-type?
 ;;  struct-constructor-procedure?
 ;;  struct-predicate-procedure?
 ;;  struct-accessor-procedure?
@@ -221,21 +278,22 @@
   random
 ;;  sleep
 ;;  (identity -identity)
-;;  raise
-  
+
+raise  
 error
 raise-type-error
 raise-mismatch-error
 
-;;  make-exn
-;;  make-exn:fail
-;;  make-exn:fail:contract
-;;  make-exn:fail:contract:arity
-;;  make-exn:fail:contract:variable
-;;  make-exn:fail:contract:divide-by-zero
+make-exn
+make-exn:fail
+make-exn:fail:contract
+make-exn:fail:contract:arity
+make-exn:fail:contract:variable
+make-exn:fail:contract:divide-by-zero
 
-;;  exn-message
-;;  exn-continuation-marks
+exn-message
+exn-continuation-marks
+
 
 ;;  exn?
 ;;  exn:fail?
@@ -279,8 +337,8 @@ raise-mismatch-error
   angle
   magnitude
   conjugate
-  ;;  inexact->exact
-  ;;  exact->inexact
+  inexact->exact
+  exact->inexact
   number->string
   string->number
   procedure?
@@ -289,37 +347,37 @@ raise-mismatch-error
   procedure-rename
   ;;  (undefined? -undefined?)
 ;;  immutable?
-;;  void?
+void?
 symbol?
 string?
 char?
 boolean?
 vector?
-;;  struct?
-;;  eof-object?
+struct?
 ;;  bytes?
-;;  byte?
+byte?
 number?
 complex?
 real?
 rational?
 integer?
+exact-integer?
 exact?
 exact-nonnegative-integer?
-;;  inexact?
+inexact?
 odd?
 even?
 zero?
 positive?
 negative?
-;;  box?
+box?
 ;;  hash?
 
   equal?
   eqv?
 
   caar
-;;  cadr
+  cadr
 ;;  cdar
 ;;  cddr
 ;;  caaar
@@ -341,19 +399,14 @@ negative?
   map
   andmap
   ormap
-memq
-;;  memv
+  memq
+  memv
   member
-;;  memf
+  memf
   assq
-;;  assv
-;;  assoc
-;;  remove
-;;  filter
-;;  foldl
-;;  foldr
+  assv
+  assoc
 ;;  sort
-;;  build-list
   box
 ;;  box-immutable
   unbox
@@ -380,17 +433,17 @@ memq
   string-ci<=?
   string-ci>=?
 
+  string-copy
   substring
   string-append
   string->list
   list->string
-;;  string-copy
-string->symbol
-symbol->string
+  string->symbol
+  symbol->string
+  
   format
   printf
   fprintf
-;;  build-string
 ;;  string->immutable-string
   string-set!
 ;;  string-fill!
@@ -416,40 +469,49 @@ symbol->string
   vector-set!
   vector->list
   list->vector
-;;  build-vector
-char=?
-;;  char<?
-;;  char>?
-;;  char<=?
-;;  char>=?
-;;  char-ci=?
-;;  char-ci<?
-;;  char-ci>?
-;;  char-ci<=?
-;;  char-ci>=?
-;;  char-alphabetic?
-;;  char-numeric?
-;;  char-whitespace?
-;;  char-upper-case?
-;;  char-lower-case?
-;;  char->integer
-;;  integer->char
+  char=?
+  char<?
+  char>?
+  char<=?
+  char>=?
+  char-ci=?
+  char-ci<?
+  char-ci>?
+  char-ci<=?
+  char-ci>=?
+  char-alphabetic?
+  char-numeric?
+  char-whitespace?
+  char-upper-case?
+  char-lower-case?
+  char->integer
+  integer->char
   char-upcase
   char-downcase
 
- 
-;;  call-with-current-continuation
+  
+  ;; these are defined in bootstrapped-primitives in Whalesong's compiler package
+  call-with-current-continuation
   call/cc
-;;  call-with-continuation-prompt
-;;  abort-current-continuation
-;;  default-continuation-prompt-tag
-;;  make-continuation-prompt-tag
-;;  continuation-prompt-tag?
+
+  ;;  call-with-continuation-prompt
+  ;;  abort-current-continuation
+  default-continuation-prompt-tag
+  make-continuation-prompt-tag
+  continuation-prompt-tag?
 
   make-reader-graph
   make-placeholder
-  placeholder-set!)
+  placeholder-set!
 
+  eof-object?
+  read-byte
+
+
+  hash-has-key?
+  hash-keys
+  hash-values
+  )
 
 
 

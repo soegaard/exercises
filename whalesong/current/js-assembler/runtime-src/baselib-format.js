@@ -76,9 +76,9 @@
         }
 
         var returnVal;
-        if (typeof(x.toWrittenString) !== 'undefined') {
+        if (x.toWrittenString) {
             returnVal = x.toWrittenString(cache);
-        } else if (typeof(x.toDisplayedString) !== 'undefined') {
+        } else if (x.toDisplayedString) {
             returnVal = x.toDisplayedString(cache);
         } else {
             returnVal = x.toString();
@@ -119,9 +119,9 @@
         }
 
         var returnVal;
-        if (typeof(x.toDisplayedString) !== 'undefined') {
+        if (x.toDisplayedString) {
             returnVal = x.toDisplayedString(cache);
-        } else if (typeof(x.toWrittenString) !== 'undefined') {
+        } else if (x.toWrittenString) {
             returnVal = x.toWrittenString(cache);
         } else {
             returnVal = x.toString();
@@ -202,17 +202,37 @@
 
     var ToDomNodeParameters = function(params) {
         if (! params) { params = {}; }
-        this.cache = baselib.hashes.makeLowLevelEqHash();
         var k;
         for (k in params) {
             if (params.hasOwnProperty(k)) {
                 this[k] = params[k];
             }
         }
-        this.objectCounter = 0;
+        if (this.cache === undefined) {
+            this.cache = baselib.hashes.makeLowLevelEqHash();
+        }
+        if (this.cycles === undefined) {
+            this.cycles = baselib.hashes.makeLowLevelEqHash();
+        }
+        if (this.depth === undefined) {
+            this.depth = 0;
+        }
+        if (this.objectCounter === undefined) {
+            this.objectCounter = 0;
+        }
     };
 
-    // getMode: -> (U "print" "display" "write")
+
+    ToDomNodeParameters.prototype.incrementDepth = function() {
+        return new ToDomNodeParameters({ mode : this.mode,
+                                         depth: this.depth + 1,
+                                         cache: this.cache,
+                                         cycles: this.cycles,
+                                         objectCounter: this.objectCounter });
+    };
+    
+
+    // getMode: -> (U "print" "display" "write" "constructor")
     ToDomNodeParameters.prototype.getMode = function() {
         if (this.mode) { 
             return this.mode; 
@@ -220,8 +240,16 @@
         return 'print';
     };
 
+    ToDomNodeParameters.prototype.getDepth = function(x) {
+        return this.depth;
+    };
+
     ToDomNodeParameters.prototype.containsKey = function(x) {
         return this.cache.containsKey(x);
+    };
+
+    ToDomNodeParameters.prototype.seesOldCycle = function(x) {
+        return this.cycles.containsKey(x);
     };
 
     ToDomNodeParameters.prototype.get = function(x) {
@@ -232,9 +260,12 @@
         return this.cache.remove(x);
     };
 
-    ToDomNodeParameters.prototype.put = function(x) {
-        this.objectCounter++;
-        return this.cache.put(x, this.objectCounter);
+    ToDomNodeParameters.prototype.put = function(x, v) {
+        return this.cache.put(x, v);
+    };
+
+    ToDomNodeParameters.prototype.recur = function(x) {
+        return toDomNode(x, this.incrementDepth());
     };
 
 
@@ -315,63 +346,51 @@
     };
 
 
-    // toDomNode: scheme-value -> dom-node
-    var toDomNode = function(x, params) {
-        var node;
+    var coerseToParams = function(params) {
         if (params === 'write') {
             params = new ToDomNodeParameters({'mode' : 'write'});
         } else if (params === 'print') {
             params = new ToDomNodeParameters({'mode' : 'print'});
         } else if (params === 'display') {
             params = new ToDomNodeParameters({'mode' : 'display'});
+        } else if (params === 'constructor') {
+            params = new ToDomNodeParameters({'mode' : 'constructor'});
         } else {
             params = params || new ToDomNodeParameters({'mode' : 'display'});
         } 
+        return params;
+    };
+
+
+    // toDomNode: scheme-value -> dom-node
+    var toDomNode = function(x, params) {
+        var node, retval;
+        params = coerseToParams(params);
+
+        if (x === null) {
+            node = document.createElement("span");
+            node.appendChild(document.createTextNode("#<null>"));
+            $(node).addClass("null");
+            return node;
+        }
+
+        if (x === undefined) {
+            node = document.createElement("span");
+            node.appendChild(document.createTextNode("#<undefined>"));
+            $(node).addClass("undefined");
+            return node;
+        }
 
         if (baselib.numbers.isSchemeNumber(x)) {
             node = numberToDomNode(x, params);
             $(node).addClass("number");
             return node;
         }
-        
-        if (x === null) {
-            node = document.createElement("span");
-            node.appendChild(document.createTextNode("null"));
-            $(node).addClass("null");
-            return node;
-        }
-
-        if (x === true) {
-            node = document.createElement("span");
-            node.appendChild(document.createTextNode("true"));
-            $(node).addClass("boolean");
-            return node;
-        }
-
-        if (x === false) {
-            node = document.createElement("span");
-            node.appendChild(document.createTextNode("false"));
-            $(node).addClass("boolean");
-            return node;
-        }
-
-        if (typeof(x) === 'object') {
-            if (params.containsKey(x)) {
-                node = document.createElement("span");
-                node.appendChild(document.createTextNode("#" + params.get(x)));
-                return node;
-            }
-        }
-        if (x === undefined || x === null) {
-            node = document.createElement("span");
-            node.appendChild(document.createTextNode("#<undefined>"));
-            return node;
-        }
 
         if (typeof(x) === 'string') {
             var wrapper = document.createElement("span");
             wrapper.style["white-space"] = "pre";
-            if (params.getMode() === 'write' || params.getMode() === 'print') {
+            if (params.getMode() === 'write' || params.getMode() === 'print' || params.getMode() === 'constructor') {
                 node = document.createTextNode(toWrittenString(x));
             } else {
                 node = document.createTextNode(toDisplayedString(x));
@@ -381,41 +400,72 @@
             return wrapper;
         }
 
+        if (x === true || x === false) {
+            node = document.createElement("span");
+            node.appendChild(document.createTextNode(x ? "true" : "false"));
+            $(node).addClass("boolean");
+            return node;
+        }
+
         if (baselib.functions.isProcedure(x)) {
             node = document.createElement("span");
-            node.appendChild(document.createTextNode('#<procedure: ' + x.displayName + '>'));
+            node.appendChild(document.createTextNode('#<procedure:' + x.displayName + '>'));
             $(node).addClass("procedure");
             return node;
         }
 
-        if (typeof(x) !== 'object' && typeof(x) !== 'function') {
+        if (typeof(x) !== 'object') {
             node = document.createElement("span");
             node.appendChild(document.createTextNode(x.toString()));
             return node;
         }
 
-        var returnVal;
         if (x.nodeType) {
-            returnVal =  x;
-        } else if (typeof(x.toDomNode) !== 'undefined') {
-            returnVal =  x.toDomNode(params);
-        } else if (params.getMode() === 'write' && 
-                   typeof(x.toWrittenString) !== 'undefined') {
+            return x;
+        }
+
+
+
+        // Otherwise, we know the value is an object.
+        
+        // If we're along a print path with a loop, we need to stop
+        // and return the key.
+        if (params.seesOldCycle(x)) {
             node = document.createElement("span");
-            node.appendChild(document.createTextNode(x.toWrittenString(params)));
-            returnVal =  node;
-        } else if (params.getMode() === 'display' &&
-                   typeof(x.toDisplayedString) !== 'undefined') {
+            node.appendChild(document.createTextNode("#" + params.cycles.get(x) + "#"));
+            $(node).addClass("cycle");
+            return node;
+        }
+
+        // If we see a fresh cycle, register it.
+        if (params.containsKey(x)) {
+            $('<span/>').text('#' + params.objectCounter +'=')
+                    .prependTo(params.get(x));
+
+            params.cycles.put(x, params.objectCounter);
+            params.objectCounter++;
+
             node = document.createElement("span");
-            node.appendChild(document.createTextNode(x.toDisplayedString(params)));
-            returnVal =  node;
+            node.appendChild(document.createTextNode("#" + params.cycles.get(x) + "#"));
+            $(node).addClass("cycle");
+            return node;
+        }
+
+        node = document.createElement("span");
+        params.put(x, node);
+        if (x.toDomNode) {
+            node.appendChild(x.toDomNode(params));
+        } else if (params.getMode() === 'write' && x.toWrittenString) {
+            node.appendChild(document.createTextNode(
+                x.toWrittenString(params)));
+        } else if (params.getMode() === 'display' && x.toDisplayedString) {
+            node.appendChild(document.createTextNode(
+                x.toDisplayedString(params)));
         } else {
-            node = document.createElement("span");
             node.appendChild(document.createTextNode(x.toString()));
-            returnVal =  node;
         }
         params.remove(x);
-        return returnVal;
+        return node;
     };
 
 

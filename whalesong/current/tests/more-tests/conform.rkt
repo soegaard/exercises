@@ -129,7 +129,8 @@
 (define set-internal-node-name! (lambda (node name) (vector-set! node '0 name)))
 (define set-internal-node-green-edges! (lambda (node edges) (vector-set! node '1 edges)))
 (define set-internal-node-red-edges! (lambda (node edges) (vector-set! node '2 edges)))
-(define set-internal-node-blue-edges! (lambda (node edges) (vector-set! node '3 edges)))
+(define set-internal-node-blue-edges! (lambda (node edges)
+                                        (vector-set! node '3 edges)))
 (define make-node
   (lambda (name blue-edges)
     (let ((name (if (symbol? name) (symbol->string name) name))

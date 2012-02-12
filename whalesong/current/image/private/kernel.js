@@ -6,7 +6,7 @@
 //////////////////////////////////////////////////////////////////////
 var colorNamespace = MACHINE.modules['whalesong/image/private/color.rkt'].namespace;
 var colorStruct = colorNamespace['struct:color'];
-var makeColor = colorStruct.constructor;
+var makeColor = function(r,g,b,a) { return colorStruct.constructor([r,g,b,a]); };
 var isColor = colorStruct.predicate;
 var colorRed = function(c) { return colorStruct.accessor(c, 0); };
 var colorGreen = function(c) { return colorStruct.accessor(c, 1); };
@@ -166,24 +166,34 @@ var withIeHack = function(canvas, f) {
 
 // Images are expected to define a render() method, which is used
 // here to draw to the canvas.
-BaseImage.prototype.toDomNode = function(cache) {
+BaseImage.prototype.toDomNode = function(params) {
     var that = this;
     var width = that.getWidth();
     var height = that.getHeight();
     var canvas = makeCanvas(width, height);
+    var ctx;
 
-
+    // // Try best effort to render to screen at this point.
+    // try {
+    //     ctx = canvas.getContext("2d");
+    //     that.render(ctx, 0, 0);
+    // } catch (e) {
+    // }
     // KLUDGE: on IE, the canvas rendering functions depend on a
     // context where the canvas is attached to the DOM tree.
-
     // We initialize an afterAttach hook; the client's responsible
     // for calling this after the dom node is attached to the
     // document.
-    $(canvas).bind('afterAttach',
-                   function(event) {
-	               var ctx = canvas.getContext("2d");
-	               that.render(ctx, 0, 0);
-                   });
+    var onAfterAttach = function(event) {
+        // $(canvas).unbind('afterAttach', onAfterAttach);
+	var ctx = this.getContext("2d");
+	that.render(ctx, 0, 0);
+    };
+    $(canvas).bind('afterAttach', onAfterAttach);
+
+    // Canvases lose their drawn content on cloning.  data may help us to preserve it.
+    $(canvas).data('toRender', onAfterAttach);
+
     return canvas;
 };
 
@@ -365,7 +375,7 @@ FileImage.prototype.getHeight = function() {
 };
 
 // Override toDomNode: we don't need a full-fledged canvas here.
-FileImage.prototype.toDomNode = function(cache) {
+FileImage.prototype.toDomNode = function(params) {
     return this.img.cloneNode(true);
 };
 
@@ -1427,7 +1437,7 @@ var imageToColorList = function(img) {
 	a = data[i+3];
 	colors.push(makeColor(r, g, b, a));
     }
-    return plt.baselib.lists.makeList.apply(null, colors);
+    return plt.baselib.lists.arrayToList(colors);
 }
 
 

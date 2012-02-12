@@ -18,8 +18,14 @@
          current-seen-unimplemented-kernel-primitives
 
          current-kernel-module-locator?
+
+         current-primitive-identifier?
+         
          current-compress-javascript?
          current-one-module-per-file?
+         current-with-cache?
+         current-with-legacy-ie-support?
+         
          
          current-report-port
          current-timing-port
@@ -71,6 +77,9 @@
 
 
 
+(: current-primitive-identifier? (Parameterof (Symbol -> Boolean)))
+(define current-primitive-identifier? (make-parameter (lambda: ([name : Symbol]) #f)))
+
 
 (: current-compress-javascript? (Parameterof Boolean))
 (define current-compress-javascript? (make-parameter #f))
@@ -80,6 +89,18 @@
 ;; opposed to trying to bundle them all together.
 (: current-one-module-per-file? (Parameterof Boolean))
 (define current-one-module-per-file? (make-parameter #f))
+
+
+;; Turns on caching of compiled programs, so that repeated compilations
+;; will reuse existing work.
+(: current-with-cache? (Parameterof Boolean))
+(define current-with-cache? (make-parameter #t))
+
+
+;; Turns on ie legacy support; includes excanvas and other helper libraries
+;; to smooth out compatibility issues.
+(: current-with-legacy-ie-support? (Parameterof Boolean))
+(define current-with-legacy-ie-support? (make-parameter #t))
 
 
 

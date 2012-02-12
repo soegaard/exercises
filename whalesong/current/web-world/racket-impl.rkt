@@ -6,6 +6,8 @@
          to-draw
 
          ->view
+         view?
+
          view-focus? view-focus
          view-left view-right view-up view-down
          view-left? view-right? view-up? view-down?
@@ -16,7 +18,7 @@
          view-backward
          
          view-text update-view-text
-         view-attr update-view-attr
+         view-attr view-has-attr? update-view-attr remove-view-attr
          view-css update-view-css
          view-id
 
@@ -81,6 +83,9 @@
 (define (->view x)
   (error '->view "Please run in JavaScript context."))
 
+(define (view? x)
+  (error 'view? "Please run in JavaScript context."))
+
 
 
 (define (view-focus? v selector)
@@ -143,8 +148,14 @@
 (define (view-attr v attr-name)
   (error 'view-attr "Please run in JavaScript context."))
 
+(define (view-has-attr? v attr-name)
+  (error 'view-has-attr? "Please run in JavaScript context."))
+
 (define (update-view-attr v attr-name value)
   (error 'update-view-attr "Please run in JavaScript context."))
+
+(define (remove-view-attr v attr-name)
+  (error 'remove-view-attr "Please run in JavaScript context."))
 
 
 

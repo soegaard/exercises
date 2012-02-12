@@ -1,0 +1,10 @@
+CACHE MANIFEST
+## Timestamp: Sunday, February 12th, 2012 3:32:13pm
+stxmat-exercises.js
+optimer-normal-normal.js
+canvas.text.js
+excanvas.js
+
+# All other resources (e.g. sites) require the user to be online.
+NETWORK:
+*

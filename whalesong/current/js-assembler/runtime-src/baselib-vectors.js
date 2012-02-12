@@ -7,24 +7,14 @@
 
 
 
-    var Vector = function (n, initialElements) {
+    var Vector = function (initialElements) {
         var i;
-        this.elts = [];
-        this.elts.length = n;
-        if (initialElements) {
-            for (i = 0; i < n; i++) {
-                this.elts[i] = initialElements[i];
-            }
-        } else {
-            for (i = 0; i < n; i++) {
-                this.elts[i] = undefined;
-            }
-        }
+        this.elts = initialElements;
         this.mutable = true;
     };
 
-    Vector.makeInstance = function (n, elts) {
-        return new Vector(n, elts);
+    Vector.makeInstance = function (elts) {
+        return new Vector(elts);
     };
 
     Vector.prototype.length = function () {
@@ -56,6 +46,17 @@
         }
     };
 
+    Vector.prototype.hashCode = function(depth) {
+        var k = baselib.hashes.getEqualHashCode("Vector");
+        var i;
+        k = baselib.hashes.hashMix(k);
+        for (i = 0; i < this.elts.length; i++) {
+            k += baselib.hashes.getEqualHashCode(this.elts[i], depth);
+            k = baselib.hashes.hashMix(k);
+        }
+        return k;
+    };
+
     Vector.prototype.toList = function () {
         var ret = baselib.lists.EMPTY, i;
         for (i = this.length() - 1; i >= 0; i--) {
@@ -82,17 +83,25 @@
         return "#(" + texts.join(" ") + ")";
     };
 
-    Vector.prototype.toDomNode = function (cache) {
+    Vector.prototype.toDomNode = function (params) {
         var node = document.createElement("span"), i;
-        cache.put(this, true);
-        node.appendChild(document.createTextNode("#("));
-        for (i = 0; i < this.length(); i++) {
-            node.appendChild(baselib.format.toDomNode(this.ref(i), cache));
-            if (i !== this.length() - 1) {
+        if (params.getMode() === 'constructor') {
+            node.appendChild(document.createTextNode("(vector"));
+            for (i = 0; i < this.length(); i++) {
                 node.appendChild(document.createTextNode(" "));
+                node.appendChild(params.recur(this.ref(i)));
             }
+            node.appendChild(document.createTextNode(")"));
+        } else {
+            node.appendChild(document.createTextNode("#("));
+            for (i = 0; i < this.length(); i++) {
+                node.appendChild(params.recur(this.ref(i)));
+                if (i !== this.length() - 1) {
+                    node.appendChild(document.createTextNode(" "));
+                }
+            }
+            node.appendChild(document.createTextNode(")"));
         }
-        node.appendChild(document.createTextNode(")"));
         return node;
     };
 
@@ -100,12 +109,12 @@
     var isVector = function (x) { return x instanceof Vector; };
 
     // makeVector: x ... -> vector
-    var makeVector = function (n, elts) {
-        return Vector.makeInstance(n, elts);
+    var makeVector = function (elts) {
+        return Vector.makeInstance(elts);
     };
 
-    var makeVectorImmutable = function (n, elts) {
-        var v = Vector.makeInstance(n, elts);
+    var makeVectorImmutable = function (elts) {
+        var v = Vector.makeInstance(elts);
         v.mutable = false;
         return v;
     };

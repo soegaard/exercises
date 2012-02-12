@@ -9,15 +9,27 @@
           racket/list
           (only-in racket/contract any/c)
           racket/runtime-path
-          "scribble-helpers.rkt"
-          "../js-assembler/get-js-vm-implemented-primitives.rkt")
+          "scribble-helpers.rkt")
+
 
 @(require racket/runtime-path)
 @(define-runtime-path git-head-path "../.git/refs/heads/master")
 
 
 @(require (for-label (this-package-in js))
-          (for-label (this-package-in lang/base))
+          (for-label (except-in (this-package-in lang/base)
+                                string?
+                                printf
+                                number->string
+                                void
+                                quasiquote
+                                string=?
+                                string
+                                e
+                                number?
+                                newline
+                                current-output-port
+                                display))
           (for-label (this-package-in resource)
           (for-label (this-package-in web-world))))
 
@@ -68,20 +80,6 @@ document lives in @url{http://hashcollision.org/whalesong}.}}
 
 
 
-
-
-
-@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-@; Warning Will Robinson, Warning!
-@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-@centered{@larger{@bold{@italic{Warning: this is work in progress!}}}}
-
-
-
-
-
-
-
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 @section{Introduction}
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -116,53 +114,77 @@ Prerequisites: at least @link["http://racket-lang.org/"]{Racket
 Here are a collection of programs that use the @emph{web-world} library described
 later in this document:
 @itemize[
-@item{@link["http://hashcollision.org/whalesong/examples/attr-animation/attr-animation.html"]{attr-animation.html} [@link["http://hashcollision.org/whalesong/examples/attr-animation/attr-animation.rkt"]{src}]  Uses @racket[update-view-attr] and @racket[on-tick] to perform a simple color animation.}
+@item{@link["http://hashcollision.org/whalesong/examples/attr-animation/attr-animation.html"]{attr-animation.html} 
+[@link["http://hashcollision.org/whalesong/examples/attr-animation/attr-animation.rkt"]{src} 
+ @link["http://hashcollision.org/whalesong/examples/attr-animation/index.html"]{index.html}
+ @link["http://hashcollision.org/whalesong/examples/attr-animation/style.css"]{style.css}]
+Uses @racket[update-view-attr] and @racket[on-tick] to perform a simple color animation.}
 
 
-@item{@link["http://hashcollision.org/whalesong/examples/boid/boid.html"]{boid.html} [@link["http://hashcollision.org/whalesong/examples/boid/boid.rkt"]{src}]  Uses @racket[update-view-css] and @racket[on-tick] to perform an animation of a flock of @link["http://en.wikipedia.org/wiki/Boids"]{boids}.}
+@item{@link["http://hashcollision.org/whalesong/examples/boid/boid.html"]{boid.html} 
+[@link["http://hashcollision.org/whalesong/examples/boid/boid.rkt"]{src}
+ @link["http://hashcollision.org/whalesong/examples/boid/index.html"]{index.html}]  Uses @racket[update-view-css] and @racket[on-tick] to perform an animation of a flock of @link["http://en.wikipedia.org/wiki/Boids"]{boids}.}
 
 
 @item{@link["http://hashcollision.org/whalesong/examples/dwarves/dwarves.html"]{dwarves.html}
-[@link["http://hashcollision.org/whalesong/examples/dwarves/dwarves.rkt"]{src}]
+[@link["http://hashcollision.org/whalesong/examples/dwarves/dwarves.rkt"]{src}
+ @link["http://hashcollision.org/whalesong/examples/dwarves/index.html"]{index.html}]
 Uses @racket[view-show] and @racket[view-hide] to manipulate a view.  Click on a dwarf to make them hide.
   }
 
 @item{@link["http://hashcollision.org/whalesong/examples/dwarves-with-remove/dwarves-with-remove.html"]{dwarves-with-remove.html}
-[@link["http://hashcollision.org/whalesong/examples/dwarves-with-remove/dwarves-with-remove.rkt"]{src}]
+[@link["http://hashcollision.org/whalesong/examples/dwarves-with-remove/dwarves-with-remove.rkt"]{src}
+ @link["http://hashcollision.org/whalesong/examples/dwarves-with-remove/index.html"]{index.html}]
 Uses @racket[view-focus?] and @racket[view-remove] to see if a dwarf should be removed from the view.
 }
 
 @item{@link["http://hashcollision.org/whalesong/examples/field/field.html"]{field.html}
-[@link["http://hashcollision.org/whalesong/examples/field/field.rkt"]{src}]
+[@link["http://hashcollision.org/whalesong/examples/field/field.rkt"]{src}
+ @link["http://hashcollision.org/whalesong/examples/field/index.html"]{index.html}]
 Uses @racket[view-bind] to read a text field, and @racket[update-view-text] to change
 the text content of an element.
 }
 
 @item{@link["http://hashcollision.org/whalesong/examples/phases/phases.html"]{phases.html}
-[@link["http://hashcollision.org/whalesong/examples/phases/phases.rkt"]{src}]
+[@link["http://hashcollision.org/whalesong/examples/phases/phases.rkt"]{src}
+@link["http://hashcollision.org/whalesong/examples/phases/index1.html"]{index1.html}
+@link["http://hashcollision.org/whalesong/examples/phases/index2.html"]{index2.html}]
 Switches out one view entirely in place of another.  Different views can correspond to phases in a program.
 }
 
 
 @item{@link["http://hashcollision.org/whalesong/examples/tick-tock/tick-tock.html"]{tick-tock.html}
-[@link["http://hashcollision.org/whalesong/examples/tick-tock/tick-tock.rkt"]{src}]
+[@link["http://hashcollision.org/whalesong/examples/tick-tock/tick-tock.rkt"]{src}
+ @link["http://hashcollision.org/whalesong/examples/tick-tock/index.html"]{index.html}]
 Uses @racket[on-tick] to show a timer counting up.
 }
 
 @item{@link["http://hashcollision.org/whalesong/examples/redirected/redirected.html"]{redirected.html}
-[@link["http://hashcollision.org/whalesong/examples/redirected/redirected.rkt"]{src}]
+[@link["http://hashcollision.org/whalesong/examples/redirected/redirected.rkt"]{src}
+ @link["http://hashcollision.org/whalesong/examples/redirected/index.html"]{index.html}]
 Uses @racket[on-tick] to show a timer counting up, and also uses @racket[open-output-element] to
 pipe side-effecting @racket[printf]s to a hidden @tt{div}.
 }
 
 @item{@link["http://hashcollision.org/whalesong/examples/todo/todo.html"]{todo.html}
-[@link["http://hashcollision.org/whalesong/examples/todo/todo.rkt"]{src}]
+[@link["http://hashcollision.org/whalesong/examples/todo/todo.rkt"]{src}
+ @link["http://hashcollision.org/whalesong/examples/todo/index.html"]{index.html}]
 A simple TODO list manager.
 }
 
 @item{@link["http://hashcollision.org/whalesong/examples/where-am-i/where-am-i.html"]{where-am-i.html}
-[@link["http://hashcollision.org/whalesong/examples/where-am-i/where-am-i.rkt"]{src}]
+[@link["http://hashcollision.org/whalesong/examples/where-am-i/where-am-i.rkt"]{src}
+ @link["http://hashcollision.org/whalesong/examples/where-am-i/index.html"]{index.html}]
 Uses @racket[on-location-change] and @racket[on-mock-location-change] to demonstrate location services.
+}
+
+
+@item{@link["http://hashcollision.org/whalesong/examples/hot-cross-buns/hot-cross-buns.html"]{hot-cross-buns.html}
+[@link["http://hashcollision.org/whalesong/examples/hot-cross-buns/hot-cross-buns.rkt"]{src}
+ @link["http://hashcollision.org/whalesong/examples/hot-cross-buns/index.html"]{index.html}]
+Demonstrates use of checkboxes.  Uses @racket[view-has-attr?] to see if a checkbox has been
+checked, and @racket[remove-view-attr] to change the @emph{checked} attribute when the user
+wants to reset the page.
 }
 ]
 
@@ -193,66 +215,29 @@ Pacman.}
 
 @subsection{Installing Whalesong}
 
-At the time of this writing, although Whalesong has been deployed to
-@link["http://planet.racket-lang.org"]{PLaneT}, the version on PLaneT
-is probably a little out of date.  
 
-If you want to use Whalesong off of PLaneT, run the following to create
+
+Before you begin, if you are using DrRacket,
+@itemize[#:style 'ordered
+        @item{Please go to the Racket submenu.}
+        @item{Select the Limit Memory item.}
+        @item{Change the setting to Unlimited.}]
+This is to avoid an installation-time issue that prevents
+Whalesong from fully compiling.
+
+
+If you want to use Whalesong, run the following to create
 the @filepath{whalesong} launcher:
 @codeblock|{
 #lang racket/base
-(require (planet dyoo/whalesong:1:3/make-launcher))
+(require (planet dyoo/whalesong:1:14/make-launcher))
 }|
-This will create a @filepath{whalesong} launcher in the current directory.
+This may take a few minutes, as Racket is compiling Whalesong, its
+dependencies, and its documentation.  When it finally finishes,
+you should see a @filepath{whalesong} launcher in the current
+directory.
 
 
-
-
-@subsection{Installing Whalesong from github}
-
-Otherwise, you can download the sources from the github repository.
-Doing so requires doing a little bit of manual work.  The steps are:
-
-@itemlist[
-@item{Check Whalesong out of Github.}
-@item{Set up the PLaneT development link to your local Whalesong instance.}
-@item{Run @link["http://docs.racket-lang.org/raco/setup.html"]{@tt{raco setup}} over Whalesong to finish the installation}]
-
-We can check it out of the source repository in
-@link["https://github.com/"]{GitHub}; the repository can be checked out by
-using @tt{git clone}.  At the command-line, clone the tree
-with: @verbatim|{ $ git clone git://github.com/dyoo/whalesong.git }|
-This should check the repository in the current directory.
-
-
-
-Next, let's set up a @link["http://docs.racket-lang.org/planet/Developing_Packages_for_PLaneT.html#(part._devlinks)"]{PLaneT development link}.  Make sure you are in the
-parent directory that contains the @filepath{whalesong} repository, and
-then run this on your command line:
-@verbatim|{
-$ planet link dyoo whalesong.plt 1 4 whalesong
-}|
-(You may need to adjust the @tt{1} and @tt{4} major/minor numbers a bit to be larger
-than the latest version that's on PLaneT at the time.)
-
-
-Let's make the @filepath{whalesong} launcher somewhere appropriate.  Run Racket with the following
-@racket[require]:
-@racketblock[
-(require (planet dyoo/whalesong/make-launcher))
-]
-This will create a @filepath{whalesong} executable in the current working directory.
-
-
-Finally, we need to set up Whalesong with @tt{raco setup}.
-Here's how to do this at the command
-line:
-@verbatim|{
-$ raco setup -P dyoo whalesong.plt 1 4
-}|
-This should compile Whalesong.  Any time the source code in
-@filepath{whalesong} changes, we should repeat this @tt{raco setup}
-step again.
 
 
 At this point, you should be able to run the @filepath{whalesong} executable from the command line.
@@ -311,7 +296,7 @@ However, it can also be packaged with @filepath{whalesong}.
     $ ls -l hello.html
     -rw-r--r-- 1 dyoo dyoo 3817 2011-09-10 15:02 hello.html
     $ ls -l hello.js
-    -rw-r--r-- 1 dyoo dyoo 2129028 2011-09-10 15:02 hello.js
+    -rw-r--r-- 1 dyoo dyoo 841948 2011-09-10 15:02 hello.js
 
 }|
 
@@ -332,7 +317,7 @@ Visit @link["http://hashcollision.org/whalesong/examples/dom-play/dom-play.html"
 #lang planet dyoo/whalesong
 
 ;; Uses the JavaScript FFI, which provides bindings for:
-;; $ and call
+;; $ and call-method
 (require (planet dyoo/whalesong/js))
 
 ;; insert-break: -> void
@@ -364,7 +349,7 @@ Visit @link["http://hashcollision.org/whalesong/examples/dom-play/dom-play.html"
 }|}
 This program uses the @link["http:/jquery.com"]{JQuery} API provided by @racketmodname[(planet dyoo/whalesong/js)],
 as well as the native JavaScript FFI to produce output on the browser.
-If w run Whalesong on this program, and view the resulting @filepath{dom-play.html} in your
+If we run Whalesong on this program, and view the resulting @filepath{dom-play.html} in our
 web browser, we should see a pale, green page with some output.
 
 
@@ -381,12 +366,12 @@ function and define it in a module called @filepath{fact.rkt}:
 
 @margin-note{
 The files can also be downloaded here: 
-@itemlist[@item{@link["http://hashcollision.org/whalesong/examples/fact/fact.rkt"]{fact.rkt}} 
-@item{@link["http://hashcollision.org/whalesong/examples/fact/index.html"]{index.html}}]
+@itemlist[@item{@link["http://hashcollision.org/whalesong/fact-example/fact.rkt"]{fact.rkt}} 
+@item{@link["http://hashcollision.org/whalesong/fact-example/index.html"]{index.html}}]
 with generated JavaScript binaries here:
 @itemlist[
-@item{@link["http://hashcollision.org/whalesong/examples/fact/fact.js"]{fact.js}}
-@item{@link["http://hashcollision.org/whalesong/examples/fact/runtime.js"]{runtime.js}}
+@item{@link["http://hashcollision.org/whalesong/fact-example/fact.js"]{fact.js}}
+@item{@link["http://hashcollision.org/whalesong/fact-example/runtime.js"]{runtime.js}}
 ]
 }
 
@@ -465,7 +450,7 @@ The factorial of 10000 is <span id="answer">being computed</span>.
 }|
 }
 
-@margin-note{See: @link["http://hashcollision.org/whalesong/examples/fact/bad-index.html"]{bad-index.html}.}
+@margin-note{See: @link["http://hashcollision.org/whalesong/fact-example/bad-index.html"]{bad-index.html}.}
 Replacing the @racket[10000] with @racket["one-billion-dollars"] should
 reliably produce a proper error message.
 
@@ -737,6 +722,7 @@ to a web page.
 (big-bang ...
           (initial-view page1.html))
 }|
+@racket[initial-view] should only be used in the lexical context of a @racket[big-bang].
 }
 
 
@@ -754,6 +740,7 @@ Tells @racket[big-bang] when to stop.
 (big-bang ...
           (stop-when stop?))
 }|
+@racket[stop-when] should only be used in the lexical context of a @racket[big-bang].
 }
 
 
@@ -772,6 +759,7 @@ given @racket[delay], it will use that instead.
 (big-bang ...
           (on-tick tick 5)) ;; tick every five seconds
 }|
+@racket[on-tick] should only be used in the lexical context of a @racket[big-bang].
 }
 
 
@@ -794,6 +782,7 @@ The optional @tech{event} argument will contain numbers for
 (big-bang ...
           (on-mock-location-change move))
 }|
+@racket[on-mock-location-change] should only be used in the lexical context of a @racket[big-bang].
 }
 
 
@@ -814,6 +803,7 @@ The optional @tech{event} argument will contain numbers for
 (big-bang ...
           (on-location-change move))
 }|
+@racket[on-location-change] should only be used in the lexical context of a @racket[big-bang].
 }
 
 
@@ -835,6 +825,7 @@ function will be called every time an event occurs.
 (big-bang ...
           (to-draw draw))
 }|
+@racket[to-draw] should only be used in the lexical context of a @racket[big-bang].
 }
 
 
@@ -923,6 +914,64 @@ event.
 
 Common event types include @racket["click"], @racket["mouseenter"], @racket["change"].}
 
+
+A view may have many elements to bind, and it's a common pattern to
+focus and view.  As a convenience the API provides some syntactic support to
+bind multiple handlers at once:
+@defform[(view-bind-many a-view [id type world-updater] ...)]{
+Composes the use of @racket[view-focus] and @racket[view-bind] to conveniently bind
+multiple handlers at once.
+
+As an example:
+@codeblock|{
+(define (click-handler w v) ...)
+
+(define (change-handler w v) ...)
+
+(define-resource index.html)
+
+(define my-static-view (->view index.html))
+
+(define connected-view
+  (view-bind-many my-static-view 
+                  ["id1" "click" click-handler]
+                  ["id2" "click" click-handler]
+                  ["id3" "change" change-handler]))
+...
+}|
+}
+
+If the collection of ids, types, and handlers can't be represented as a static list, then
+@racket[view-bind-many*] is an alternate helper function that may be helpful to bind
+a bulk number of handlers to a view.
+@defproc[(view-bind-many* [v view] [id+type+updater-list (listof (list string string world-updater))]) view]{
+A functional version of @racket[view-bind-many].  Composes the use of
+@racket[view-focus] and @racket[view-bind] to conveniently bind
+multiple handlers at once.
+
+
+As an example:
+@codeblock|{
+(define (click-handler w v) ...)
+
+(define (change-handler w v) ...)
+
+(define-resource index.html)
+
+(define my-static-view (->view index.html))
+
+(define connected-view
+  (view-bind-many* my-static-view 
+                  `(["id1" "click" ,click-handler]
+                    ["id2" "click" ,click-handler]
+                    ["id3" "change" ,change-handler])))
+...
+}|
+}
+
+
+
+
 @defproc[(view-show [v view]) view]{
 Show the element at the focus.
 }
@@ -934,8 +983,16 @@ Hide the element at the focus.
 Get the attribute @racket[name] at the focus.
 }
 
+@defproc[(view-has-attr? [v view] [name String]) boolean]{
+Returns true if the element at the focus has an attribute @racket[name].
+}
+
 @defproc[(update-view-attr [v view] [name String] [value String]) view]{
-Update the attribute @racket[n] with the value @racket[v] at the focus.
+Update the attribute @racket[name] with the value @racket[value] at the focus.
+}
+
+@defproc[(remove-view-attr [v view] [name String]) view]{
+Remove the attribute @racket[name] at the focus.
 }
 
 @defproc[(view-css [v view] [name String]) view]{
@@ -1256,554 +1313,6 @@ Functional I/O System}).  Here's an example of such a world program:
 
 
 
-@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-@section{Internals}
-@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-Please skip this section if you're a regular user: this is really
-notes internal to Whalesong development, and is not relevant to most
-people.
-
-
-These are notes that describe the internal details of the
-implementation, including the type map from Racket values to
-JavaScript values.  It should also describe how to write FFI
-bindings, eventually.
-
-@subsection{Architecture}
-
-The basic idea is to reuse most of the Racket compiler infrastructure.
-We use the underlying Racket compiler to produce bytecode from Racket
-source; it also performs macro expansion and module-level
-optimizations for us.  We parse that bytecode using the
-@racketmodname[compiler/zo-parse] collection to get an AST,
-compile that to an
-intermediate language, and finally assemble JavaScript.
-
-@verbatim|{
-                     AST                 IL                 
- parse-bytecode.rkt -----> compiler.rkt ----> assembler.rkt 
-
-}|
-
-The IL is intended to be translated straightforwardly.  We currently
-have an assembler to JavaScript @filepath{js-assembler/assemble.rkt},
-as well as a simulator in @filepath{simulator/simulator.rkt}.  The
-simulator allows us to test the compiler in a controlled environment.
-
-
-@subsection{parser/parse-bytecode.rkt}
-
-(We try to insulate against changes in the bytecode structure by
-using the version-case library to choose a bytecode parser based on
-the Racket version number.  Add more content here as necessary...)
-
-@subsection{compiler/compiler.rkt}
-
-This translates the AST to the intermediate language.  The compiler has its
-origins in the register compiler in @link[    "http://mitpress.mit.edu/sicp/full-text/book/book-Z-H-35.html#%_sec_5.5"
-]{Structure and Interpretation of
-Computer Programs}  with some significant modifications.
-                  
-                  Since this is a stack machine,
-we don't need any of the register-saving infrastructure in the
-original compiler.  We also need to support slightly different linkage
-structures, since we want to support multiple value contexts.  We're
-trying to generate code that works effectively on a machine like the
-one described in @url{http://plt.eecs.northwestern.edu/racket-machine/}.
-
-
-The intermediate language is defined in @filepath{il-structs.rkt}, and a
-simulator for the IL in @filepath{simulator/simulator.rkt}.  See
-@filepath{tests/test-simulator.rkt} to see the simulator in action, and
-@filepath{tests/test-compiler.rkt} to see how the output of the compiler can be fed
-into the simulator.
-
-The assumed machine is a stack machine with the following atomic
-registers:
-@itemlist[
-    @item{val: value}
-    @item{proc: procedure}
-    @item{argcount: number of arguments}
-]
-and two stack registers:
-@itemlist[
-          @item{env: environment stack}
-          @item{control: control stack}
-]
-
-@subsection{js-assembler/assemble.rkt}
-The intent is to potentially support different back end generators 
-for the IL.  @filepath{js-assembler/assemble.rkt} provides a backend
-for JavaScript.
-
-The JavaScript assembler plays a few tricks to make things like tail
-calls work:
-
-@itemlist[
-          @item{Each basic block is translated to a function taking a MACHINE
-            argument.}
-
-           @item{ Every GOTO becomes a function call.}
-
-           @item{ The head of each basic-blocked function checks to see if we
-     should trampoline
-     (@url{http://en.wikipedia.org/wiki/Trampoline_(computers)})}
-
-           @item{We support a limited form of computed jump by assigning an
-     attribute to the function corresponding to a return point.  See
-     the code related to the LinkedLabel structure for details.}
-]
-
-Otherwise, the assembler is fairly straightforward.  It depends on
-library functions defined in @filepath{runtime-src/runtime.js}.  As soon as the compiler
-stabilizes, we will be pulling in the runtime library in Moby Scheme
-into this project.  We are right in the middle of doing this, so expect
-a lot of flux here.
-
-
-The assembled output distinguishes between Primitives and Closures.
-Primitives are only allowed to return single values back, and are not
-allowed to do any higher-order procedure calls.  Closures, on the
-other hand, have full access to the machine, but they are responsible
-for calling the continuation and popping off their arguments when
-they're finished.
-
-
-
-
-@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-@subsection{Values}
-@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-All values should support the following functions
-
-@itemlist[
-   @item{plt.runtime.toDomNode(x, mode): produces a dom representation.  mode can be either 'write', 'display', or 'print'}
-
-   @item{plt.runtime.equals(x, y): tests if two values are equal to each other}
-
-]
-
-
-
-
-
-@subsubsection{Numbers}
-
-Numbers are represented with the
-@link["https://github.com/dyoo/js-numbers"]{js-numbers} JavaScript
-library.  We re-exports it as a @tt{plt.baselib.numbers} namespace
-which provides the numeric tower API.
-
-Example uses of the @tt{plt.baselib.numbers} library include:
-
-@itemlist[
-@item{Creating integers: @verbatim{42}  @verbatim{16}}
-
-@item{Creating big integers: @verbatim{plt.baselib.numbers.makeBignum("29837419826")}}
-
-@item{Creating floats: @verbatim{plt.baselib.numbers.makeFloat(3.1415)}}
-
-@item{Predicate for numbers: @verbatim{plt.baselib.numbers.isSchemeNumber(42)}}
-
-@item{Adding two numbers together: @verbatim{plt.baselib.numbers.add(42, plt.baselib.numbers.makeFloat(3.1415))}}
-
-@item{Converting a plt.baselib.numbers number back into native JavaScript floats: @verbatim{plt.baselib.numbers.toFixnum(...)}}
-]
-
-Do all arithmetic using the functions in the @tt{plt.baselib.numbers} namespace.
-One thing to also remember to do is apply @tt{plt.baselib.numbers.toFixnum} to any
-native JavaScript function that expects numbers.
-
-
-
-
-@subsubsection{Pairs, @tt{NULL}, and lists}
-
-Pairs can be constructed with @tt{plt.runtime.makePair(f, r)}.  A pair
-is an object with @tt{first} and @tt{rest} attributes.  They can be
-tested with @tt{plt.runtime.isPair()};
-
-The empty list value, @tt{plt.runtime.NULL}, is a single,
-distinguished value, so compare it with @tt{===}.
-
-Lists can be constructed with @tt{plt.runtime.makeList}, which can take in
-multiple arguments.  For example,
-@verbatim|{ var aList = plt.runtime.makeList(3, 4, 5); }|
-constructs a list of three numbers.
-
-The predicate @tt{plt.runtime.isList(x)} takes an argument x and
-reports if the value is chain of pairs, terminates by NULL.  At the
-time of this writing, it does NOT check for cycles.
-
-
-
-
-@subsection{Vectors}
-Vectors can be constructed with @tt{plt.runtime.makeVector(x ...)}, which takes
-in any number of arguments.  They can be tested with @tt{plt.runtime.isVector}, 
-and support the following methods and attributes:
-@itemlist[
-    @item{ref(n): get the nth element}
-    @item{set(n, v): set the nth element with value v}
-    @item{length: the length of the vector }]
-
-
-
-
-@subsection{Strings}
-
-Immutable strings are represented as regular JavaScript strings.
-
-Mutable strings haven't been mapped yet.
-
-
-
-@subsection{VOID}
-
-The distinguished void value is @tt{plt.runtime.VOID}; functions
-implemented in JavaScript that don't have a useful return value should
-return @tt{plt.runtime.VOID}.
-
-
-@subsection{Undefined}
-The undefined value is JavaScript's @tt{undefined}.
-
-
-@subsection{EOF}
-The eof object is @tt{plt.runtime.EOF}
-
-
-@subsubsection{Boxes}
-Boxes can be constructed with @tt{plt.runtime.makeBox(x)}.  They can be
-tested with @tt{plt.runtime.isBox()}, and they support two methods:
-@verbatim|{
-   box.get(): returns the value in the box
-   box.set(v): replaces the value in the box with v 
-}|
-
-
-
-
-
-@subsubsection{Structures}
-
-structure types can be made with plt.runtime.makeStructureType.  For example,
-@verbatim|{
-    var Color = plt.runtime.makeStructureType(
-        'color',    // name
-        false,      // parent structure type
-        3,          // required number of arguments
-        0,          // number of automatically-filled fields
-        false,      // OPTIONAL: the auto-v value
-        false       // OPTIONAL: a guard procedure
-        );
-}|
-
-@tt{makeStructuretype} is meant to mimic the @racket[make-struct-type]
-function in Racket.  It produces a structure type value with the
-following methods:
-@itemlist[
-
-        @item{@tt{constructor}: create an instance of a structure type.
-
-For example,
-@verbatim|{
-    var aColor = Color.constructor(3, 4, 5);
-}|
-creates an instance of the Color structure type.
-}
-
-
-        @item{@tt{predicate}: test if a value is of the given structure type.
-
-For example,
-@verbatim|{
-     Color.predicate(aColor) --> true
-     Color.predicate("red") --> false
-}|
-}
-
-
-        @item{@tt{accessor}: access a field of a structure.
-
-For example,
-@verbatim|{
-    var colorRed = function(x) { return Color.accessor(x, 0); };
-    var colorGreen = function(x) { return Color.accessor(x, 1); };
-    var colorBlue = function(x) { return Color.accessor(x, 2); };
-}|
-}
-        @item{@tt{mutator}: mutate a field of a structure.
-
-For example,
-@verbatim|{
-    var setColorRed = function(x, v) { return Color.mutator(x, 0, v); };
-}|
-
-}
-]
-In addition, it has a @tt{type} whose @tt{prototype} can be changed in order
-to add methods to an instance of a structure type.  For example,
-@verbatim|{
-    Color.type.prototype.toString = function() {
-        return "rgb(" + colorRed(this) + ", "
-                      + colorGreen(this) + ", "
-                      + colorBlue(this) + ")";
-    };
-}|
-should add a toString method for instances of the @tt{Color} structure.
-
-
-
-@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-@subsection{Tests}
-@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-The test suite in @filepath{tests/test-all.rkt} runs the test suite.
-You'll need to
-run this on a system with a web browser, as the suite will evaluate
-JavaScript and make sure it is producing values.  A bridge module
-in @filepath{tests/browser-evaluate.rkt} brings up a temporary web server
-that allows us
-to pass values between Racket and the JavaScript evaluator on the
-browser for testing output.
-
-
-
-
-@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-@subsection{What's in @tt{js-vm} that's missing from Whalesong?}
-@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(This section should describe what needs to get done next.)
-
-The only types that are mapped so far are
-@itemlist[
-@item{immutable strings}
-@item{numbers}
-@item{pairs}
-@item{null}
-@item{void}
-@item{vectors}
-]
-We need to bring around the following types previously defined in @tt{js-vm}:
-(This list will shrink as I get to the work!)
-@itemlist[
-@item{immutable vectors}
-@item{regexp}
-@item{byteRegexp}
-@item{character}
-@item{placeholder}
-@item{path}
-@item{bytes}
-@item{immutable bytes}
-@item{keywords}
-@item{hash}
-@item{hasheq}
-@item{struct types}
-@item{exceptions}
-@item{thread cells}
-
-@item{big bang info}
-@item{worldConfig}
-@item{effectType}
-@item{renderEffectType}
-@item{readerGraph}
-]
-
-
-
-@(define missing-primitives
-   (let ([in-whalesong-ht (make-hash)])
-     (for ([name whalesong-primitive-names])
-          (hash-set! in-whalesong-ht name #t))
-     (filter (lambda (name)
-               (not (hash-has-key? in-whalesong-ht name)))
-             js-vm-primitive-names))))
-
-
-What are the list of primitives in @filepath{js-vm-primitives.js} that we
-haven't yet exposed in whalesong?  We're missing @(number->string (length missing-primitives)):
-   @(apply itemlist (map (lambda (name)
-                           (item (symbol->string name)))
-                         missing-primitives))
-        
-
-
-(I should catalog the bug list in GitHub, as well as the feature list,
-so I have a better idea of what's needed to complete the project.)
-
-
-(We also need a list of the primitives missing that prevent us from
-running @racketmodname[racket/base]; it's actually a short list that
-I'll be attacking once things stabilize.)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@section{The Whalesong language}
-
-@defmodule/this-package[lang/base]
-
-This needs to at least show all the bindings available from the base
-language.
-
-@defthing[true boolean]{The boolean value @racket[#t].}
-@defthing[false boolean]{The boolean value @racket[#f].}
-@defthing[pi number]{The math constant @racket[pi].}
-@defthing[e number]{The math constant @racket[pi].}
-@defthing[null null]{The empty list value @racket[null].}
-
-@defproc[(boolean? [v any/c]) boolean?]{Returns true if v is @racket[#t] or @racket[#f]}
-
-
-
-@defform[(let/cc id body ...)]{}
-@defform[(null? ...)]{}
-@defform[(not ...)]{}
-@defform[(eq? ...)]{}
-@defform[(equal? ...)]{}
-@defform[(void ...)]{}
-@defform[(quote ...)]{}
-@defform[(quasiquote ...)]{}
-
-
-
-@subsection{IO}
-@defform[(current-output-port ...)]{}
-@defform[(current-print ...)]{}
-@defform[(write ...)]{}
-@defform[(write-byte ...)]{}
-@defform[(display ...)]{}
-@defform[(newline ...)]{}
-@defform[(format ...)]{}
-@defform[(printf ...)]{}
-@defform[(fprintf ...)]{}
-@defform[(displayln ...)]{}
-
-
-
-@subsection{Numeric operations}
-@defform[(number? ...)]{}
-@defform[(+ ...)]{}
-@defform[(- ...)]{}
-@defform[(* ...)]{}
-@defform[(/ ...)]{}
-@defform[(= ...)]{}
-@defform[(add1 ...)]{}
-@defform[(sub1 ...)]{}
-@defform[(< ...)]{}
-@defform[(<= ...)]{}
-@defform[(> ...)]{}
-@defform[(>= ...)]{}
-@defform[(abs ...)]{}
-@defform[(quotient ...)]{}
-@defform[(remainder ...)]{}
-@defform[(modulo ...)]{}
-@defform[(gcd ...)]{}
-@defform[(lcm ...)]{}
-@defform[(floor ...)]{}
-@defform[(ceiling ...)]{}
-@defform[(round ...)]{}
-@defform[(truncate ...)]{}
-@defform[(numerator ...)]{}
-@defform[(denominator ...)]{}
-@defform[(expt ...)]{}
-@defform[(exp ...)]{}
-@defform[(log ...)]{}
-@defform[(sin ...)]{}
-@defform[(sinh ...)]{}
-@defform[(cos ...)]{}
-@defform[(cosh ...)]{}
-@defform[(tan ...)]{}
-@defform[(asin ...)]{}
-@defform[(acos ...)]{}
-@defform[(atan ...)]{}
-@defform[(sqr ...)]{}
-@defform[(sqrt ...)]{}
-@defform[(integer-sqrt ...)]{}
-@defform[(sgn ...)]{}
-@defform[(make-rectangular ...)]{}
-@defform[(make-polar ...)]{}
-@defform[(real-part ...)]{}
-@defform[(imag-part ...)]{}
-@defform[(angle ...)]{}
-@defform[(magnitude ...)]{}
-@defform[(conjugate ...)]{}
-@defform[(string->number ...)]{}
-@defform[(number->string ...)]{}
-@defform[(random ...)]{}
-@defform[(exact? ...)]{}
-@defform[(integer? ...)]{}
-@defform[(zero? ...)]{}
-
-@subsection{String operations}
-@defform[(string? s)]{}
-@defform[(string ...)]{}
-@defform[(string=? ...)]{}
-@defform[(string->symbol ...)]{}
-@defform[(string-length ...)] {}
-@defform[(string-ref ...)] {}
-@defform[(string-append ...)] {}
-@defform[(string->list ...)] {}
-@defform[(list->string ...)] {}
-
-
-
-@subsection{Character operations}
-@defform[(char? ch)]{}
-@defform[(char=? ...)]{}
-
-
-
-
-@subsection{Symbol operations}
-@defform[(symbol? ...)]{}
-@defform[(symbol->string? ...)]{}
-
-
-
-@subsection{List operations}
-@defform[(pair? ...)]{}
-@defform[(cons ...)]{}
-@defform[(car ...)]{}
-@defform[(cdr ...)]{}
-@defform[(list ...)]{}
-@defform[(length ...)]{}
-@defform[(append ...)]{}
-@defform[(reverse ...)]{}
-@defform[(map ...)]{}
-@defform[(for-each ...)]{}
-@defform[(member ...)]{}
-@defform[(list-ref ...)]{}
-@defform[(memq ...)]{}
-@defform[(assq ...)]{}
-
-
-
-@subsection{Vector operations}
-@defform[(vector? ...)]{}
-@defform[(make-vector ...)]{}
-@defform[(vector ...)]{}
-@defform[(vector-length ...)]{}
-@defform[(vector-ref ...)]{}
-@defform[(vector-set! ...)]{}
-@defform[(vector->list ...)]{}
-@defform[(list->vector ...)]{}
-
 
 
 
@@ -1824,11 +1333,16 @@ language.
 
 Whalesong uses code and utilities from the following external projects:
 @itemlist[
-@item{   jshashtable (@url{http://www.timdown.co.uk/jshashtable/})}
-@item{   js-numbers (@url{http://github.com/dyoo/js-numbers/})}
-@item{   JSON (@url{http://www.json.org/js.html})}
-@item{   jquery (@url{http://jquery.com/})}
-@item{   Google Closure Compiler (@url{http://code.google.com/p/closure-compiler/})}
+@item{jshashtable (@url{http://www.timdown.co.uk/jshashtable/})}
+@item{js-numbers (@url{http://github.com/dyoo/js-numbers/})}
+@item{JSON (@url{http://www.json.org/js.html})}
+@item{jquery (@url{http://jquery.com/})}
+@item{Google Closure Compiler (@url{http://code.google.com/p/closure-compiler/})}
+@item{Google Closure Library (@url{http://code.google.com/closure/library/}) (avltree.js)}
+
+
+@item{excanvas (@url{http://excanvas.sourceforge.net/})}
+@item{canvas-text (@url{http://code.google.com/p/canvas-text/source/browse/trunk})} 
 ]
 
 The following folks have helped tremendously in the implementation of
@@ -1857,5 +1371,6 @@ and suggesting improvements.
    "Gregor Kiczales"
    "Cristina Teodoropol"
    "Matthew Flatt"
+   "Keith Decker"
 ) string<?))
 )

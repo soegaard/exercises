@@ -9,9 +9,10 @@
 
     //////////////////////////////////////////////////////////////////////
 
-    var Struct = function (constructorName, fields) {
+    var Struct = function (constructorName, fields, structType) {
         this._constructorName = constructorName; 
         this._fields = [];
+        this.structType = structType;
     };
 
     Struct.prototype.toWrittenString = function (cache) { 
@@ -33,12 +34,11 @@
 
     Struct.prototype.toDomNode = function (params) {
         var node = document.createElement("span"), i;
-        params.put(this, true);
         $(node).append(document.createTextNode("("));
         $(node).append(document.createTextNode(this._constructorName));
         for(i = 0; i < this._fields.length; i++) {
             $(node).append(document.createTextNode(" "));
-            $(node).append(baselib.format.toDomNode(this._fields[i], params));
+            $(node).append(params.recur(this._fields[i]));
         }
         $(node).append(document.createTextNode(")"));
         return node;
@@ -52,13 +52,25 @@
         }
         for (i = 0; i < this._fields.length; i++) {
             if (! baselib.equality.equals(this._fields[i],
-                         other._fields[i],
-                         aUnionFind)) {
+                                          other._fields[i],
+                                          aUnionFind)) {
                 return false;
             }
         }
         return true;
     };
+
+    Struct.prototype.hashCode = function(depth) {
+        var k = baselib.hashes.getEqualHashCode(this.name);
+        var i;
+        k = baselib.hashes.hashMix(k);
+        for (i = 0; i < this._fields.length; i++) {
+            k += baselib.hashes.getEqualHashCode(this._fields[i], depth);
+            k = baselib.hashes.hashMix(k);
+        }
+        return k;
+    };
+
 
     Struct.prototype.type = Struct;
 
@@ -75,7 +87,8 @@
                                constructor,
                                predicate, 
                                accessor,
-                               mutator) {
+                               mutator,
+                               propertiesList) {
         this.name = name;
         this.type = type;
         this.numberOfArgs = numberOfArgs;
@@ -87,6 +100,7 @@
         this.predicate = predicate;
         this.accessor = accessor;
         this.mutator = mutator;
+        this.propertiesList = propertiesList;
     };
 
 
@@ -99,6 +113,13 @@
         return this === other;
     };
 
+    StructType.prototype.hashCode = function(depth) {
+        var k = baselib.hashes.getEqualHashCode("StructType");
+        k = baselib.hashes.hashMix(k);
+        k += baselib.hashes.getEqualHashCode(this.name);
+        k = baselib.hashes.hashMix(k);
+        return k;
+    };
 
 
 
@@ -134,7 +155,8 @@
                                       initFieldCnt, 
                                       autoFieldCnt, 
                                       autoV, 
-                                      guard) {
+                                      guard,
+                                      propertiesList) {
 
 
         // Defaults
@@ -143,12 +165,11 @@
         guard = guard || DEFAULT_GUARD;
 
 
-
         // RawConstructor creates a new struct type inheriting from
         // the parent, with no guard checks.
-        var RawConstructor = function (name, args) {
+        var RawConstructor = function (name, args, structType) {
             var i;
-            parentType.type.call(this, name, args);
+            parentType.type.call(this, name, args, structType);
             for (i = 0; i < initFieldCnt; i++) {
                 this._fields.push(args[i+parentType.numberOfArgs]);
             }
@@ -158,10 +179,16 @@
         };
         RawConstructor.prototype = baselib.heir(parentType.type.prototype);
 
-
+        var theNameSymbol = 
+            baselib.symbols.Symbol.makeInstance(theName);
 
         // Set type, necessary for equality checking
         RawConstructor.prototype.type = RawConstructor;
+
+
+        var constructAfterGuard =  function (res) { 
+            return new RawConstructor(theName, res, newType); 
+        };
 
         // The structure type consists of the name, its constructor, a
         // record of how many argument it and its parent type contains,
@@ -185,13 +212,11 @@
                              });
             },
             // constructor
-            function () {
-                var args = [].slice.call(arguments);
+            function (args) {
                 return newType.applyGuard(
                     args,
-                    baselib.symbols.Symbol.makeInstance(theName),
-                    function (res) { 
-                        return new RawConstructor(theName, res); });
+                    theNameSymbol,
+                    constructAfterGuard);
             },
 
             // predicate
@@ -203,19 +228,68 @@
             function (x, i) { return x._fields[i + this.firstField]; },
 
             // mutator
-            function (x, i, v) { x._fields[i + this.firstField] = v; });
+            function (x, i, v) { x._fields[i + this.firstField] = v; },
+
+            // structure properties list
+            propertiesList);
         return newType;
     };
 
 
 
 
+    var StructTypeProperty = function(name, guards, supers) {
+        this.name = name;
+        this.guards = guards;
+        this.supers = supers;
+    };
 
 
 
+    // supportsStructureTypeProperty: StructType StructureTypeProperty -> boolean
+    // Produces true if the structure type provides a binding for the
+    // given structure property.
+    var supportsStructureTypeProperty = function(structType, property) {
+        var propertiesList = structType.propertiesList;
+        if (! propertiesList) {
+            return false;
+        }
+        while (propertiesList !== baselib.lists.EMPTY) {
+            if (propertiesList.first.first === property) {
+                return true;
+            }
+            propertiesList = propertiesList.rest;
+        }
+        return false;
+    };
 
-    var isStruct = function (x) { return x instanceof Struct; };
-    var isStructType = function (x) { return x instanceof StructType; };
+
+    // lookupStructureTypeProperty: StructType StructureTypeProperty -> any
+    // Returns the binding associated to this particular structure type propery.
+    var lookupStructureTypeProperty = function(structType, property) {
+        var propertiesList = structType.propertiesList;
+        if (! propertiesList) {
+            return undefined;
+        }
+        while (propertiesList !== baselib.lists.EMPTY) {
+            if (propertiesList.first.first === property) {
+                return propertiesList.first.rest;
+            }
+            propertiesList = propertiesList.rest;
+        }
+        return undefined;
+    };
+
+
+    // A structure type property for noting if an exception supports
+    var propExnSrcloc = new StructTypeProperty("prop:exn:srcloc");
+
+
+
+    var isStruct = baselib.makeClassPredicate(Struct);
+    var isStructType = baselib.makeClassPredicate(StructType);
+    var isStructTypeProperty = baselib.makeClassPredicate(StructTypeProperty);
+
 
 
     //////////////////////////////////////////////////////////////////////
@@ -224,7 +298,14 @@
     exports.StructType = StructType;
     exports.Struct = Struct;
     exports.makeStructureType = makeStructureType;
+
+    exports.StructTypeProperty = StructTypeProperty;
+    exports.supportsStructureTypeProperty = supportsStructureTypeProperty;
+    exports.lookupStructureTypeProperty = lookupStructureTypeProperty;
+
+    exports.propExnSrcloc = propExnSrcloc;
+
     exports.isStruct = isStruct;
     exports.isStructType = isStructType;
-
+    exports.isStructTypeProperty = isStructTypeProperty;
 }(this.plt.baselib, $));

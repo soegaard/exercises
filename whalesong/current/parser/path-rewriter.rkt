@@ -5,11 +5,14 @@
          racket/path
          racket/contract
          racket/list
-         racket/runtime-path)
+         racket/runtime-path
+         racket/string)
 
 
 
-(provide/contract [rewrite-path (complete-path? . -> . (or/c symbol? false/c))])
+(provide/contract [rewrite-path (complete-path? . -> . (or/c symbol? false/c))]
+                  [within-root-path? (complete-path? . -> . boolean?)]
+                  [within-whalesong-path? (complete-path? . -> . boolean?)])
 
 
 
@@ -31,28 +34,35 @@
 (define (rewrite-path a-path)
   (let ([a-path (normalize-path a-path)])
     (cond
-     [(within-this-project-path? a-path)
+     [(within-whalesong-path? a-path)
       (string->symbol
        (string-append "whalesong/"
-                      (path->string
+                      (my-path->string
                        (find-relative-path normal-whalesong-path a-path))))]
      [(within-collects? a-path)
       (string->symbol
        (string-append "collects/"
-                      (path->string
+                      (my-path->string
                        (find-relative-path collects-path a-path))))]
-     [(within-root? a-path)
+     [(within-root-path? a-path)
       (string->symbol
        (string-append "root/"
-                      (path->string
+                      (my-path->string
                        (find-relative-path (current-root-path) a-path))))]
      [else 
       #f])))
 
 
+
+;; Like path->string, but I force the path separator to be '/' rather than the platform
+;; specific one.
+(define (my-path->string a-path)
+  (string-join (map path->string (explode-path a-path)) "/"))
+
+
        
 
-(define (within-root? a-path)
+(define (within-root-path? a-path)
   (within? (current-root-path) a-path))
 
 
@@ -60,7 +70,7 @@
   (within? collects-path a-path))
 
 
-(define (within-this-project-path? a-path)
+(define (within-whalesong-path? a-path)
   (within? normal-whalesong-path a-path))
 
 

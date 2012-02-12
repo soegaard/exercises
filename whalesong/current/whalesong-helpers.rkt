@@ -4,18 +4,58 @@
          racket/file
          racket/path
          racket/port
+         racket/date
+         racket/runtime-path
          "make/make-structs.rkt"
          "js-assembler/package.rkt"
          "resource/structs.rkt"
          "logger.rkt"
-         "parameters.rkt")
+         "parameters.rkt"
+         planet/version
+         (for-syntax racket/base))
 
 (provide (all-defined-out))
+
+
+
+
 
 
 (define current-verbose? (make-parameter #f))
 (define current-output-dir (make-parameter (build-path (current-directory))))
 (define current-write-resources? (make-parameter #t))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; IE Compatbility stuff:
+(define-runtime-paths (excanvas.js canvas-text.js optimer-normal-normal.js)
+  (values (build-path "ie-compat" "excanvas.js")
+          (build-path "ie-compat" "canvas.text.js")
+          (build-path "ie-compat" "optimer-normal-normal.js")))
+
+(define ie-resources
+  (list (resource excanvas.js "excanvas.js" #"")
+        (resource canvas-text.js "canvas.text.js" #"")
+        (resource optimer-normal-normal.js "optimer-normal-normal.js" #"")))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(define (with-catchall-exception-handler thunk)
+  (with-handlers
+      [(void (lambda (exn)
+               (printf "ERROR: Whalesong has encountered an internal error.\n\n")
+               (printf "Please send the following error report log to dyoo@hashcollision.org.\n\n")
+               (define op (open-output-string))
+               (parameterize ([current-error-port op])
+                 ((error-display-handler) (exn-message exn) exn))
+               (printf "------------------\n")
+               (displayln (get-output-string op))
+               (printf "------------------\n")
+               (printf "\nAborting compilation.\n")
+               (exit)))]
+    (thunk)))
+
 
 
 
@@ -41,134 +81,186 @@
                       (loop)))))))
 
 (define (build-standalone-xhtml f)
-  (turn-on-logger!)
-  (let-values ([(base filename dir?)
-                (split-path f)])
-    (let ([output-filename
-           (build-path
-            (regexp-replace #rx"[.](rkt|ss)$"
-                            (path->string filename)
-                            ".xhtml"))])
-      (unless (directory-exists? (current-output-dir))
-        (fprintf (current-report-port) "Creating destination directory ~s\n" (current-output-dir))
-        (make-directory* (current-output-dir)))
-      (parameterize ([current-on-resource
-                      (lambda (r)
-                        (cond
-                          [(file-exists? (build-path (current-output-dir)
-                                                     (resource-key r)))
-                           (cond [(same-file? (build-path (current-output-dir)
-                                                          (resource-key r))
-                                              (resource-path r))
-                                  (void)]
-                                 [else
-                                  (error 'whalesong "Unable to write resource ~s; this will overwrite a file"
-                                         (build-path (current-output-dir)
-                                                     (resource-key r)))])]
-                          [else
-                           (fprintf (current-report-port)
-                                    (format "Writing resource ~s\n" (build-path (current-output-dir)
-                                                                                (resource-key r))))
-                           (copy-file (resource-path r) 
-                                      (build-path (current-output-dir)
-                                                  (resource-key r)))]))])
-        (fprintf (current-report-port)
-                 (format "Writing program ~s\n" (build-path (current-output-port) output-filename)))
-        (call-with-output-file* (build-path (current-output-dir) output-filename)
-                                (lambda (op)
-                                  (package-standalone-xhtml
-                                   (make-ModuleSource (build-path f))
-                                   op))
-                                #:exists 'replace)))))
+  (with-catchall-exception-handler
+   (lambda ()
+     (turn-on-logger!)
+     (let-values ([(base filename dir?)
+                   (split-path f)])
+       (let ([output-filename
+              (build-path
+               (regexp-replace #rx"[.](rkt|ss)$"
+                               (path->string filename)
+                               ".xhtml"))])
+         (unless (directory-exists? (current-output-dir))
+           (fprintf (current-report-port) "Creating destination directory ~s\n" (current-output-dir))
+           (make-directory* (current-output-dir)))
+         (parameterize ([current-on-resource
+                         (lambda (r)
+                           (cond
+                            [(file-exists? (build-path (current-output-dir)
+                                                       (resource-key r)))
+                             (cond [(same-file? (build-path (current-output-dir)
+                                                            (resource-key r))
+                                                (resource-path r))
+                                    (void)]
+                                   [else
+                                    (error 'whalesong "Unable to write resource ~s; this will overwrite a file that already exists."
+                                           (build-path (current-output-dir)
+                                                       (resource-key r)))])]
+                            [else
+                             (fprintf (current-report-port)
+                                      (format "Writing resource ~s\n" (build-path (current-output-dir)
+                                                                                  (resource-key r))))
+                             (copy-file (resource-path r) 
+                                        (build-path (current-output-dir)
+                                                    (resource-key r)))]))])
+           (fprintf (current-report-port)
+                    (format "Writing program ~s\n" (build-path (current-output-port) output-filename)))
+           (call-with-output-file* (build-path (current-output-dir) output-filename)
+                                   (lambda (op)
+                                     (package-standalone-xhtml
+                                      (make-MainModuleSource 
+                                       (normalize-path (build-path f)))
+                                      op))
+                                   #:exists 'replace)))))))
 
 
 
 (define (build-html-and-javascript f)
-  (turn-on-logger!)
+  (with-catchall-exception-handler
+   (lambda ()
+     (turn-on-logger!)
 
-  (define written-js-paths '())
-  (define make-output-js-filename
-    (let ([n 0])
-      (lambda ()
-        (define result (build-path (current-output-dir)
-                                   (regexp-replace #rx"[.](rkt|ss)$"
-                                                   (path->string (file-name-from-path f))
-                                                   (if (= n 0)
-                                                       ".js"
-                                                       (format "_~a.js" n)))))
-        (set! written-js-paths (cons result written-js-paths))
-        (set! n (add1 n))
-        (fprintf (current-report-port)
-                 (format "Writing program ~s\n" result))
-        result)))
-      
+     (define written-js-paths '())
+     (define written-resources '())
+     (define make-output-js-filename
+       (let ([n 0])
+         (lambda ()
+           (define result (build-path (current-output-dir)
+                                      (string-append
+                                       (regexp-replace #rx"[.](rkt|ss)$"
+                                                       (path->string (file-name-from-path f))
+                                                       "")
+                                       (if (= n 0)
+                                           ".js"
+                                           (format "_~a.js" n)))))
+           (set! written-js-paths (cons result written-js-paths))
+           (set! n (add1 n))
+           (fprintf (current-report-port)
+                    (format "Writing program ~s\n" result))
+           result)))
+     
+     (define (on-resource r)
+       (cond
+        [(file-exists? (build-path (current-output-dir) (resource-key r)))
+         (cond [(same-file? (build-path (current-output-dir)
+                                        (resource-key r))
+                            (resource-path r))
+                (fprintf (current-report-port)
+                         (format "Skipping writing resource ~s; already exists\n"
+                                 (build-path (current-output-dir)
+                                             (resource-key r))))
+                (void)]
+               [else
+                (error 'whalesong "Unable to write resource ~s; this will overwrite a file that already exists."
+                       (build-path (current-output-dir)
+                                   (resource-key r)))])]
+        [else
+         (fprintf (current-report-port)
+                  (format "Writing resource ~s\n" (build-path (current-output-dir)
+                                                              (resource-key r))))
+         (copy-file (resource-path r) 
+                    (build-path (current-output-dir)
+                                (resource-key r)))])
+       (set! written-resources (cons (resource-key r) written-resources)))
+     
 
-  (define start-time (current-inexact-milliseconds))
-  (let ([output-html-filename
-         (build-path
-          (regexp-replace #rx"[.](rkt|ss)$"
-                          (path->string (file-name-from-path f))
-                          ".html"))])
-      (unless (directory-exists? (current-output-dir))
-        (fprintf (current-report-port) "Creating destination directory ~s\n" (current-output-dir))
-        (make-directory* (current-output-dir)))
-      (parameterize ([current-on-resource
-                      (lambda (r)
-                        (cond
-                          [(file-exists? (build-path (current-output-dir)
-                                                     (resource-key r)))
-                           (cond [(same-file? (build-path (current-output-dir)
-                                                          (resource-key r))
-                                              (resource-path r))
-                                  (fprintf (current-report-port)
-                                           (format "Skipping writing resource ~s; already exists\n"
-                                                   (build-path (current-output-dir)
-                                                               (resource-key r))))
-                                  
-                                  (void)]
-                                 [else
-                                  (error 'whalesong "Unable to write resource ~s; this will overwrite a file"
-                                         (build-path (current-output-dir)
-                                                     (resource-key r)))])]
-                          [else
-                           (fprintf (current-report-port)
-                                    (format "Writing resource ~s\n" (build-path (current-output-dir)
-                                                                                (resource-key r))))
-                           (copy-file (resource-path r) 
-                                      (build-path (current-output-dir)
-                                                  (resource-key r)))]))])
-        (call-with-output-file* (make-output-js-filename)
-                                (lambda (op)
-                                  (display (get-runtime) op)
-                                  (display (get-inert-code (make-ModuleSource (build-path f))
-                                                           make-output-js-filename)
-                                           op))
-                                #:exists 'replace)
+     
+     (define start-time (current-inexact-milliseconds))
+     (let ([title
+            (regexp-replace #rx"([.](rkt|ss))$"
+                            (path->string (file-name-from-path f))
+                            "")]
+           [output-html-filename
+            (build-path
+             (string-append (regexp-replace #rx"[.](rkt|ss)$"
+                                            (path->string (file-name-from-path f))
+                                            "")
+                            ".html"))]
+           [output-manifest-filename
+            (build-path
+             (string-append
+              (regexp-replace #rx"[.](rkt|ss)$"
+                              (path->string (file-name-from-path f))
+                              "")
+              ".appcache"))])
+       (unless (directory-exists? (current-output-dir))
+         (fprintf (current-report-port) "Creating destination directory ~s\n" (current-output-dir))
+         (make-directory* (current-output-dir)))
 
-        (fprintf (current-report-port)
-                 (format "Writing html ~s\n" (build-path (current-output-dir) output-html-filename)))
-        (call-with-output-file* (build-path (current-output-dir) output-html-filename)
-                                (lambda (op)
-                                  (display (get-html-template
-                                            (map file-name-from-path
-                                                 (reverse written-js-paths)))
-                                           op))
-                                #:exists 'replace)
-        (define stop-time (current-inexact-milliseconds))
+       (parameterize ([current-on-resource on-resource])
+         (call-with-output-file* (make-output-js-filename)
+                                 (lambda (op)
+                                   (display (get-runtime) op)
+                                   (display (get-inert-code (make-MainModuleSource 
+                                                             (normalize-path (build-path f)))
+                                                            make-output-js-filename)
+                                            op))
+                                 #:exists 'replace))
 
-        (fprintf (current-timing-port) "Time taken: ~a milliseconds\n" (- stop-time start-time)))))
+       (when (current-with-legacy-ie-support?)
+         (for ([r ie-resources]) (on-resource r)))
+       
+       (fprintf (current-report-port)
+                (format "Writing html ~s\n" (build-path (current-output-dir) output-html-filename)))
+       (call-with-output-file* (build-path (current-output-dir) output-html-filename)
+                               (lambda (op)
+                                 (display (get-html-template
+                                           (map file-name-from-path
+                                                (reverse written-js-paths))
+                                           #:title title
+                                           #:manifest output-manifest-filename)
+                                          op))
+                               #:exists 'replace)
+
+       ;; Write the manifest
+       (fprintf (current-report-port)
+                (format "Writing manifest ~s\n" (build-path (current-output-dir) output-manifest-filename)))
+       (call-with-output-file* (build-path (current-output-dir) output-manifest-filename)
+                               (lambda (op)
+                                 (fprintf op "CACHE MANIFEST\n")
+                                 (fprintf op "## Timestamp: ~a\n" (date->string (current-date) #t))
+                                 (for [(js-name (map file-name-from-path (reverse written-js-paths)))]
+                                      (fprintf op "~a\n" js-name))
+                                 (for [(resource-name written-resources)]
+                                      (fprintf op "~a\n" resource-name))
+                                 (fprintf op "\n# All other resources (e.g. sites) require the user to be online.\nNETWORK:\n*\n"))
+                               
+                               #:exists 'replace)
+       (define stop-time (current-inexact-milliseconds))
+
+       (fprintf (current-timing-port) "Time taken: ~a milliseconds\n" (- stop-time start-time))))))
 
 
 
 
 (define (print-the-runtime)
-  (turn-on-logger!)
-  (display (get-runtime) (current-output-port)))
+  (with-catchall-exception-handler
+   (lambda ()
+     (turn-on-logger!)
+     (display (get-runtime) (current-output-port)))))
 
 
 
 (define (get-javascript-code filename)
-  (turn-on-logger!)
-  (display (get-standalone-code
-            (make-ModuleSource (build-path filename)))
-           (current-output-port)))
+  (with-catchall-exception-handler
+   (lambda ()
+     (turn-on-logger!)
+     (display (get-standalone-code
+               (make-MainModuleSource 
+                (normalize-path (build-path filename))))
+              (current-output-port)))))
+
+
+(define (print-version)
+  (printf "~a\n" (this-package-version)))

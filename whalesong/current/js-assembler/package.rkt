@@ -10,6 +10,10 @@
          "../parser/path-rewriter.rkt"
          "../parser/parse-bytecode.rkt"
          "../resource/structs.rkt"
+	 "../promise.rkt"
+         "check-valid-module-source.rkt"
+         "find-primitive-implemented.rkt"
+         (prefix-in hash-cache: "hash-cache.rkt")
          racket/match
          racket/list
          racket/promise
@@ -17,10 +21,16 @@
          racket/path
          racket/string
          racket/port
+         syntax/modread
+         syntax/kerncase
+         syntax/modresolve
          (prefix-in query: "../lang/js/query.rkt")
          (prefix-in resource-query: "../resource/query.rkt")
          (prefix-in runtime: "get-runtime.rkt")
-         (prefix-in racket: racket/base))
+         (prefix-in racket: racket/base)
+         racket/runtime-path)
+
+
 
 ;; There is a dynamic require for (planet dyoo/closure-compile) that's done
 ;; if compression is turned on.
@@ -30,7 +40,6 @@
 
 
 (provide package
-         ;;package-anonymous
          package-standalone-xhtml
          get-inert-code
          get-standalone-code
@@ -46,6 +55,20 @@
 ;; Print out log message during the build process.
 (define (notify msg . args)
   (displayln (apply format msg args)))
+
+
+
+(define primitive-identifiers-set
+  (list->set primitive-ids))
+
+;; Sets up the compiler parameters we need to do javascript-specific compilation.
+(define (with-compiler-params thunk)
+  (parameterize ([compile-context-preservation-enabled #t]
+                 [current-primitive-identifier?
+                  (lambda (a-name)
+                    (set-member? primitive-identifiers-set a-name))])
+    (thunk)))
+
 
 
 
@@ -88,6 +111,23 @@
 
 
 
+;; check-valid-source: Source -> void
+;; Check to see if the file, if a module, is a valid module file.
+(define (check-valid-source src)
+  (cond
+   [(StatementsSource? src)
+    (void)]
+   [(MainModuleSource? src)
+    (check-valid-module-source (MainModuleSource-path src))]
+   [(ModuleSource? src)
+    (check-valid-module-source (ModuleSource-path src))]
+   [(SexpSource? src)
+    (void)]
+   [(UninterpretedSource? src)
+    (void)]))
+
+
+
 ;; source-is-javascript-module?: Source -> boolean
 ;; Returns true if the source looks like a Javascript-implemented module.
 (define (source-is-javascript-module? src)
@@ -95,8 +135,8 @@
     [(StatementsSource? src)
      #f]
     [(MainModuleSource? src)
-     (source-is-javascript-module?
-      (MainModuleSource-source src))]
+     (query:has-javascript-implementation?
+      `(file ,(path->string (MainModuleSource-path src))))]
     [(ModuleSource? src)
      (query:has-javascript-implementation?
       `(file ,(path->string (ModuleSource-path src))))]
@@ -110,8 +150,8 @@
     [(StatementsSource? src)
      empty]
     [(MainModuleSource? src)
-     (source-resources
-      (MainModuleSource-source src))]
+     (resource-query:query
+      `(file ,(path->string (MainModuleSource-path src))))]
     [(ModuleSource? src)
      (resource-query:query
       `(file ,(path->string (ModuleSource-path src))))]
@@ -136,27 +176,24 @@
                    provides))]
       [else
        ""]))
-  (cond
-    [(StatementsSource? src)
-     (error 'get-javascript-implementation src)]
-    [(MainModuleSource? src)
-     (get-javascript-implementation (MainModuleSource-source src))]
-    [(ModuleSource? src)
-     (let* ([name (rewrite-path (ModuleSource-path src))]
-            [paths (query:query `(file ,(path->string (ModuleSource-path src))))]
-            [text (string-join
-                   (map (lambda (p)
-                          (call-with-input-file p port->string))
-                        paths)
-                   "\n")]
-            [module-requires (query:lookup-module-requires (ModuleSource-path src))]
-            [bytecode (parse-bytecode (ModuleSource-path src))])
-       (when (not (empty? module-requires))
-         (log-debug "~a requires ~a"
-                    (ModuleSource-path src)
-                    module-requires))
-       (let ([module-body-text
-              (format "
+
+
+  (define (get-implementation-from-path path)
+    (let* ([name (rewrite-path path)]
+	   [paths (query:query `(file ,(path->string path)))]
+	   [text (string-join
+		  (map (lambda (p)
+			 (call-with-input-file p port->string))
+		       paths)
+		  "\n")]
+	   [module-requires (query:lookup-module-requires path)]
+	   [bytecode (parse-bytecode path)])
+      (when (not (empty? module-requires))
+	    (log-debug "~a requires ~a"
+		       path
+		       module-requires))
+      (let ([module-body-text
+	     (format "
              if(--M.cbt<0) { throw arguments.callee; }
              var modrec = M.modules[~s];
              var exports = {};
@@ -165,24 +202,34 @@
              ~a
              modrec.privateExports = exports;
              return M.c.pop().label(M);"
-                      (symbol->string name)
-                      text
-                      (get-provided-name-code bytecode))])
-         
-         (make-UninterpretedSource
-          (format "
+		     (symbol->string name)
+		     text
+		     (get-provided-name-code bytecode))])
+	
+	(make-UninterpretedSource
+	 (format "
 M.modules[~s] =
     new plt.runtime.ModuleRecord(~s,
         function(M) {
             ~a
         });
 "
-                  (symbol->string name)
-                  (symbol->string name)
-                  (assemble-modinvokes+body module-requires module-body-text))
-          
-          (map (lambda (p) (make-ModuleSource (normalize-path p)))
-               module-requires))))]
+		 (symbol->string name)
+		 (symbol->string name)
+		 (assemble-modinvokes+body module-requires module-body-text))
+	 
+	 (map (lambda (p) (make-ModuleSource (normalize-path p)))
+	      module-requires)))))
+
+
+
+  (cond
+    [(StatementsSource? src)
+     (error 'get-javascript-implementation src)]
+    [(MainModuleSource? src)
+     (get-implementation-from-path (MainModuleSource-path src))]
+    [(ModuleSource? src)
+     (get-implementation-from-path (ModuleSource-path src))]
     
     
     [(SexpSource? src)
@@ -245,6 +292,9 @@ M.modules[~s] =
   ;; Translate all JavaScript-implemented sources into uninterpreted sources;
   ;; we'll leave its interpretation to on-visit-src.
   (define (wrap-source src)
+    (log-debug "Checking valid source")
+    (check-valid-source src)
+    
     (log-debug "Checking if the source has a JavaScript implementation")
     (cond
       [(source-is-javascript-module? src)
@@ -283,7 +333,7 @@ M.modules[~s] =
          (fprintf op "(function(M) { ~a }(plt.runtime.currentMachine));" (UninterpretedSource-datum src))]
         [else      
          (fprintf op "(")
-         (assemble/write-invoke stmts op)
+         (on-source src stmts op)
          (fprintf op ")(plt.runtime.currentMachine,
                      function() {
                           if (window.console && window.console.log) {
@@ -327,11 +377,67 @@ M.modules[~s] =
      ;; last
      on-last-src))
   
-  (make (list (make-MainModuleSource source-code))
-        packaging-configuration)
+  (with-compiler-params
+   (lambda () (make (list source-code) packaging-configuration)))
   
   (for ([r resources])
     ((current-on-resource) r)))
+
+
+
+;; on-source: Source (Promise (Listof Statement)) OutputPort -> void
+;; Generates the source for the statements here.
+;; Optimization: if we've seen this source before, we may be able to pull
+;; it from the cache.
+(define (on-source src stmts op)
+  (define (on-path path)
+    (cond
+      [(current-with-cache?)
+       (cond
+         [(cached? path)
+          =>
+          (lambda (bytes)
+            (display bytes op))]
+         [(cacheable? path)
+          (define string-op (open-output-bytes))
+          (assemble/write-invoke (my-force stmts) string-op)
+          (save-in-cache! path (get-output-bytes string-op))
+          (display (get-output-string string-op) op)]
+         [else
+          (assemble/write-invoke (my-force stmts) op)])]
+      [else
+       (assemble/write-invoke (my-force stmts) op)]))
+  (cond
+   [(ModuleSource? src)
+    (on-path (ModuleSource-path src))]
+   [(MainModuleSource? src)
+    (on-path (MainModuleSource-path src))]
+   [else
+    (assemble/write-invoke (my-force stmts) op)]))
+
+
+;; cached?: path -> (U false bytes)
+;; Returns a true value (the cached bytes) if we've seen this path
+;; and know its JavaScript-compiled bytes.
+(define (cached? path)
+  (hash-cache:cached? path))
+
+
+
+;; cacheable?: path -> boolean
+;; Produces true if the file should be cached.
+;; At the current time, only cache modules that are provided
+;; by whalesong itself.
+(define (cacheable? path)
+  (within-whalesong-path? path))
+
+
+;; save-in-cache!: path bytes -> void
+;; Saves the bytes in the cache, associated with that path.
+;; TODO: Needs to sign with the internal version of Whalesong, and
+;; the md5sum of the path's content.
+(define (save-in-cache! path bytes)
+  (hash-cache:save-in-cache! path bytes))
 
 
 
@@ -361,7 +467,7 @@ M.modules[~s] =
           (lambda (src) #t)
           ;; on
           (lambda (src ast stmts)
-            (assemble/write-invoke stmts op)
+            (on-source src stmts op)
             (fprintf op "(M, function() { "))
           
           ;; after
@@ -376,7 +482,9 @@ M.modules[~s] =
     
     (newline op)
     (fprintf op "(function(M, SUCCESS, FAIL, PARAMS) {")
-    (make (list only-bootstrapped-code) packaging-configuration)
+    (with-compiler-params
+     (lambda ()
+       (make (list (my-force only-bootstrapped-code)) packaging-configuration)))
     (fprintf op "})(plt.runtime.currentMachine,\nfunction(){ plt.runtime.setReadyTrue(); },\nfunction(){},\n{});\n")))
 
 
@@ -424,15 +532,21 @@ EOF
   )
 
 
-;; get-html-template: (listof string) -> string
-(define (get-html-template js-files)
+;; get-html-template: (listof string) (#:manifest path) -> string
+(define (get-html-template js-files
+                           #:manifest (manifest #f)
+                           #:with-legacy-ie-support? (with-legacy-ie-support? #t)
+                           #:title (title ""))
   (format #<<EOF
 <!DOCTYPE html>
-<html>
+<html ~a>
   <head>
+    ~a
     <meta name="viewport" content="initial-scale=1.0, width=device-width, height=device-height, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta charset="utf-8"/>
-    <title></title>
+    <title>~a</title>
 ~a
   <script>
   ~a
@@ -442,7 +556,11 @@ EOF
   </body>
   </html>
 EOF
-
+  (if manifest (format "manifest=~s" (path->string manifest)) "")
+  (if with-legacy-ie-support?
+      "<meta http-equiv='X-UA-Compatible' content='IE=7,chrome=1'><!--[if lt IE 9]><script src='excanvas.js' type='text/javascript'></script><script src='canvas.text.js'></script><script src='optimer-normal-normal.js'></script><![endif]-->"
+      "")
+  title
   (string-join (map (lambda (js)
                       (format "  <script src='~a'></script>\n" js))
                     js-files)
@@ -496,7 +614,36 @@ var invokeMainModule = function() {
             }
         },
         function(M, e) {
-            var contMarkSet, context, i, appName;
+            var contMarkSet, context, i, appName, contextDiv, srclocProcedure;
+
+            var displayContext = function() {
+                var subcontextDiv = $('<div/>').css('color', 'red');
+                subcontextDiv.append("Stacktrace:\n");
+                if (contMarkSet) {
+                    context = contMarkSet.getContext(M);
+                    for (i = 0; i < context.length; i++) {
+                        if (plt.runtime.isVector(context[i])) {
+                                $('<div/>').text('at ' + context[i].elts[0] +
+                                                 ', line ' + context[i].elts[2] +
+                                                 ', column ' + context[i].elts[3])
+                                    .addClass('stacktrace')
+                                    .css('margin-left', '10px')
+                                    .css('whitespace', 'pre')
+                                    .appendTo(subcontextDiv);
+                        } else if (plt.runtime.isProcedure(context[i])) {
+                            $('<div/>').text('in ' + context[i].displayName)
+                                    .addClass('stacktrace')
+                                    .css('margin-left', '10px')
+                                    .css('whitespace', 'pre')
+                                    .appendTo(subcontextDiv);
+                        }                                     
+                    }
+                }
+                contextDiv.append(subcontextDiv);
+                M.params.currentErrorDisplayer(M, contextDiv);
+            };
+
+
             // On main module invokation failure
             if (window.console && window.console.log) {
                 window.console.log(e.stack || e);
@@ -508,29 +655,41 @@ var invokeMainModule = function() {
             if (e.hasOwnProperty('racketError') &&
                 plt.baselib.exceptions.isExn(e.racketError)) {
                 contMarkSet = plt.baselib.exceptions.exnContMarks(e.racketError);
-                if (contMarkSet) {
-                    context = contMarkSet.getContext(M);
-                    for (i = 0; i < context.length; i++) {
-                        if (plt.runtime.isVector(context[i])) {
-                            M.params.currentErrorDisplayer(
-                                M,
-                                $('<div/>').text('  at ' + context[i].elts[0] +
-                                                 ', line ' + context[i].elts[2] +
-                                                 ', column ' + context[i].elts[3])
-                                    .addClass('stacktrace')
-                                    .css('margin-left', '10px')
-                                    .css('whitespace', 'pre')
-                                    .css('color', 'red'));
-                        } else if (plt.runtime.isProcedure(context[i])) {
-                            M.params.currentErrorDisplayer(
-                                M,
-                                $('<div/>').text('  in ' + context[i].displayName)
-                                    .addClass('stacktrace')
-                                    .css('margin-left', '10px')
-                                    .css('whitespace', 'pre')
-                                    .css('color', 'red'));
-                        }                                     
-                    }
+                contextDiv = $('<div/>');
+
+                if (e.racketError.structType &&
+                    plt.baselib.structs.supportsStructureTypeProperty(
+                        e.racketError.structType,
+                        plt.baselib.structs.propExnSrcloc)) {
+                    srclocProcedure = plt.baselib.functions.asJavaScriptFunction(
+                              plt.baselib.structs.lookupStructureTypeProperty(
+                                  e.racketError.structType,
+                                  plt.baselib.structs.propExnSrcloc),
+                              M);
+                    srclocProcedure(function(v) {
+                                        if (plt.baselib.lists.isList(v)) {
+                                            while(v !== plt.baselib.lists.EMPTY) {
+                                                if (plt.baselib.srclocs.isSrcloc(v.first)) {
+                                                    $('<div/>').text('at ' + plt.baselib.srclocs.srclocSource(v.first) +
+                                                                     ', line ' + plt.baselib.srclocs.srclocLine(v.first) +
+                                                                     ', column ' + plt.baselib.srclocs.srclocColumn(v.first))
+                                                               .addClass('srcloc')
+                                                               .css('margin-left', '10px')
+                                                               .css('whitespace', 'pre')
+                                                               .css('color', 'red')
+                                                               .appendTo(contextDiv);
+                                                }
+                                                v = v.rest;
+                                            }
+                                        }
+                                        displayContext();
+                                    },
+                                    function(err) {
+                                        displayContext();
+                                    },
+                                    e.racketError);
+                } else {
+                    displayContext();
                 }
             }
         });

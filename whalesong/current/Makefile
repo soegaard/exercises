@@ -4,6 +4,9 @@
 all: planet-link launcher setup
 
 
+bump-version:
+	racket bump-version.rkt
+
 launcher: 
 	racket make-launcher.rkt
 
@@ -28,21 +31,22 @@ test-earley:
 test-conform: 
 	racket tests/test-conform.rkt
 
-test-more: 
+test-more: bump-version 
 	racket tests/run-more-tests.rkt
 
 doc:
 	scribble  ++xref-in setup/xref load-collections-xref --redirect-main http://docs.racket-lang.org/ --dest generated-docs  --dest-name index.html scribblings/manual.scrbl
 
 
-cs19-doc:
-	scribble  ++xref-in setup/xref load-collections-xref --redirect-main http://docs.racket-lang.org/ --dest generated-docs  scribblings/cs19.scrbl
+cs019-doc:
+	scribble  ++xref-in setup/xref load-collections-xref --redirect-main http://docs.racket-lang.org/ --dest generated-docs  scribblings/cs019.scrbl
 
 
 
 setup:
-	raco setup --no-docs -P dyoo whalesong.plt 1 4
+
+	raco setup --no-docs -P dyoo whalesong.plt 1 14
 
 
 planet-link:
-	raco planet link dyoo whalesong.plt 1 4 .
+	raco planet link dyoo whalesong.plt 1 14 .

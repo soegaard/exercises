@@ -34,6 +34,8 @@
                     ;; coerse to view
                     ->view
 
+                    view?
+                    
                     view-focus?
                     view-focus
                     
@@ -63,7 +65,9 @@
                     view-hide
                     
                     view-attr
+                    view-has-attr?
                     update-view-attr
+                    remove-view-attr
 
                     view-css
                     update-view-css

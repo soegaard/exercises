@@ -9,6 +9,7 @@
                               'box
                               'list
                               'pair
+                              'caarpair
                               'any))
 
 
@@ -27,6 +28,7 @@
                                     '>=
                                     'cons
                                     'car
+				    'caar
                                     'cdr
 				    'cadr
 				    'caddr
@@ -49,6 +51,7 @@
                                     'null?
                                     'not
                                     'eq?
+                                    'eqv?
 				    'remainder
 				    'display
 				    'newline
@@ -81,7 +84,40 @@
                                     'srcloc-position
                                     'srcloc-span
 
+				    'error
                                     'raise-type-error
+                                    'struct:exn:fail
+                                    'prop:exn:srclocs
+
+                                    'hash?
+                                    'hash-equal?
+                                    'hash-eq?
+                                    'hash-eqv?
+                                    'hash
+                                    'hasheqv
+                                    'hasheq
+                                    'make-hash
+                                    'make-hasheqv
+                                    'make-hasheq
+                                    'make-immutable-hash
+                                    'make-immutable-hasheqv
+                                    'make-immutable-hasheq
+                                    'hash-copy
+                                    'hash-ref
+                                    'hash-has-key?
+                                    'hash-set!
+                                    'hash-set
+                                    'hash-remove!
+                                    'hash-remove
+                                    'equal-hash-code
+                                    'hash-count
+                                    'hash-keys
+                                    'hash-values
+                                    
+                                    'string-copy
+
+                                    'unsafe-car
+                                    'unsafe-cdr
                                     ))
 (define-predicate KernelPrimitiveName? KernelPrimitiveName)
 
@@ -100,13 +136,15 @@
                                            '>=
                                            'cons
                                            'car
+                                           'caar
                                            'cdr
                                            'list
                                            'list?
                                            'pair?
                                            'null?
                                            'not
-                                           'eq?))
+                                           'eq?
+                                           ))
 
 (ensure-type-subsetof KernelPrimitiveName/Inline KernelPrimitiveName)
 
@@ -187,6 +225,9 @@
 
     [(eq? prim 'car)
      (list 'pair)]
+
+    [(eq? prim 'caar)
+     (list 'caarpair)]
     
     [(eq? prim 'cdr)
      (list 'pair)]

@@ -1,15 +1,9 @@
 #lang racket/base
 
 (require racket/runtime-path
-         planet/version
          syntax/kerncase
          net/base64
-         (for-template (this-package-in lang/kernel)
-                       #;(this-package-in image/main))
-         
-         ;; FIXME: I don't quite understand why I should be doing a require
-         ;; of the image library at compile time, and not at template time.
-         (this-package-in image/main))
+         (for-template "lang/kernel.rkt"))
 
 
 
@@ -34,9 +28,10 @@
   ;; fruitfully use compiler/zo-parse.    
   (define rewritten
     (parameterize
-        ([my-image-url (car (generate-temporaries #'(image-url)))])
+        ([my-image-url (car (generate-temporaries #'(my-image-url)))])
       
-      (kernel-syntax-case (syntax-disarm expanded code-insp) #f
+      (define disarmed (syntax-disarm expanded code-insp))
+      (kernel-syntax-case disarmed #t
         [(#%expression expr)
          (quasisyntax/loc stx
            (#%expression #,(on-expr #'expr)))]
@@ -49,8 +44,8 @@
                                  ;; Kludge: I'm trying to get at the image-url
                                  ;; function, but in a way that doesn't clash with the
                                  ;; user's existing program.
-                                 (require (rename-in (file image-library-path)
-                                                     [image-url #,(my-image-url)]))
+                                 (require (only-in (file image-library-path)
+                                                   [bitmap/url #,(my-image-url)]))
                                  
                                  #,@(map on-toplevel
                                          (syntax->list #'(module-level-form ...)))))))]
@@ -69,7 +64,8 @@
 
 
 (define (on-expr expr)
-  (kernel-syntax-case (syntax-disarm expr code-insp) #f
+  (define disarmed (syntax-disarm expr code-insp))
+  (kernel-syntax-case disarmed #t
     
     [(#%plain-lambda formals subexpr ...)
      (quasisyntax/loc expr
@@ -81,7 +77,8 @@
                               (syntax-case (syntax-disarm a-clause code-insp) ()
                                 [(formals subexpr ...)
                                  (quasisyntax/loc a-clause
-                                   (formals #,@(map on-expr #'(subexpr ...))))]))
+                                   (formals #,@(map on-expr
+                                                    (syntax->list #'(subexpr ...)))))]))
                             (syntax->list #'(case-lambda-clauses ...)))))]
     
     [(if test true-part false-part)
@@ -144,7 +141,8 @@
     
     [(#%plain-app subexpr ...)
      (quasisyntax/loc expr
-       (#%plain-app #,@(map on-expr (syntax->list #'(subexpr ...)))))]
+       (#%plain-app
+        #,@(map on-expr (syntax->list #'(subexpr ...)))))]
     
     [(#%top . id)
      expr]
@@ -190,7 +188,7 @@
 
 
 (define (on-toplevel stx)
-  (kernel-syntax-case (syntax-disarm stx code-insp) #f
+  (kernel-syntax-case (syntax-disarm stx code-insp) #t
     [(#%provide raw-provide-spec ...)
      stx]
     
@@ -202,16 +200,12 @@
        (define-values ids #,(on-expr #'expr)))]
     
     [(define-syntaxes ids expr)
-     #'(void)
-     ;(quasisyntax/loc stx 
-     ;  (define-syntaxes ids #,(on-expr #'expr)))
-     ]
+     (quasisyntax/loc stx 
+       (define-syntaxes ids #,(on-expr #'expr)))]
     
     [(define-values-for-syntax ids expr)
-     #'(void)
-     ;(quasisyntax/loc stx 
-     ;  (define-values-for-syntax ids #,(on-expr #'expr)))
-     ]
+     (quasisyntax/loc stx 
+       (define-values-for-syntax ids #,(on-expr #'expr)))]
     
     [else
      (on-expr stx)]))

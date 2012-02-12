@@ -110,12 +110,13 @@ EOF
        (define next-to-visit (first queue))
        (cond
          [(set-contains? visited next-to-visit)
-          (unless (set-contains? entry-points next-to-visit)
+          #;(unless (set-contains? entry-points next-to-visit)
             (log-debug (format "Promoting ~a to an entry point" next-to-visit))
             (set-insert! entry-points next-to-visit))
           (loop (rest queue))]
          [else
           (set-insert! visited next-to-visit)
+          (set-insert! entry-points next-to-visit)
           (loop (list-union (basic-block-out-edges (hash-ref blockht next-to-visit))
                             (rest queue)))])]))
 
@@ -207,6 +208,13 @@ EOF
                  (munge-label-name (make-Label (BasicBlock-name a-basic-block)))
                  expected)
         'ok]))]
+
+   [(block-looks-like-pop-multiple-values-and-continue? a-basic-block)
+    =>
+    (lambda (target)
+      (fprintf op "~a=RT.si_pop_multiple-values-and-continue(~a);"
+               (munge-label-name (make-Label (BasicBlock-name a-basic-block)))
+               target))]
    [else
     (default-assemble-basic-block a-basic-block blockht entry-points function-entry-and-exit-names op)]))
 
@@ -220,7 +228,7 @@ EOF
              (assemble-label (make-Label (BasicBlock-name a-basic-block)) blockht)
              (assemble-label (make-Label (BasicBlock-name a-basic-block)) blockht))]
    [else
-    (fprintf op "var ~a=function(M){--M.cbt<0;\n"
+    (fprintf op "var ~a=function(M){\n"
              (assemble-label (make-Label (BasicBlock-name a-basic-block)) blockht))])
   (assemble-block-statements (BasicBlock-name a-basic-block)
                              (BasicBlock-stmts a-basic-block)
@@ -567,8 +575,12 @@ EOF
       (let: ([skip : OpArg (PopEnvironment-skip stmt)])
         (cond
           [(and (Const? skip) (= (ensure-natural (Const-const skip)) 0))
-           (format "M.e.length-=~a;"
-                   (assemble-oparg (PopEnvironment-n stmt) blockht))]
+           (cond [(equal? (PopEnvironment-n stmt)
+                          (make-Const 1))
+                  "M.e.pop();"]
+                 [else
+                  (format "M.e.length-=~a;"
+                          (assemble-oparg (PopEnvironment-n stmt) blockht))])]
           [else
            (format "M.e.splice(M.e.length-(~a+~a),~a);"
                    (assemble-oparg (PopEnvironment-skip stmt) blockht)
@@ -591,7 +603,7 @@ EOF
   (cond
    #;[(current-emit-debug-trace?)
     (string-append 
-     (format "if(typeof(window.console)!=='undefined'&&typeof(console.log)==='function'){console.log(~s);\n}"
+     (format "if(typeof(window.console)!=='undefined'&&typeof(window.console.log)==='function'){window.console.log(~s);\n}"
                (format "~a" stmt))
      assembled)]
    [else

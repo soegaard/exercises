@@ -79,15 +79,25 @@
     };
 
 
+    var raiseFailure = function(MACHINE, msg) {
+        var contMarks = MACHINE.captureContinuationMarks();
+        raise(MACHINE, ExnFail.constructor([msg, contMarks]));
+    };
+
+    var raiseContractError = function(MACHINE, msg) {
+        var contMarks = MACHINE.captureContinuationMarks();
+        raise(MACHINE, ExnFailContract.constructor([msg, contMarks]));
+    };
+
 
 
     var raiseUnboundToplevelError = function(MACHINE, name) {
         var message = baselib.format.format("Not bound: ~a", [name]);
         var contMarks = MACHINE.captureContinuationMarks();
         raise(MACHINE, 
-              ExnFailContractVariable.constructor(message, 
-                                                  contMarks, 
-                                                  baselib.symbols.makeSymbol(name))); 
+              ExnFailContractVariable.constructor([message, 
+                                                   contMarks, 
+                                                   baselib.symbols.makeSymbol(name)])); 
     };
 
 
@@ -105,14 +115,14 @@
                            expectedTypeName,
                            (argumentOffset + 1),
                            actualValue]);
-            raise(MACHINE, ExnFailContract.constructor(message, contMarks));
+            raise(MACHINE, ExnFailContract.constructor([message, contMarks]));
         } else {
             message = baselib.format.format(
                           "~a: expected ~a but received ~e",
                           [callerName,
                            expectedTypeName,
                            actualValue]);
-            raise(MACHINE, ExnFailContract.constructor(message, contMarks));
+            raise(MACHINE, ExnFailContract.constructor([message, contMarks]));
         }
     };
 
@@ -120,7 +130,7 @@
         var message = baselib.format.format("expected ~e values, received ~e values",
                                             [expected, MACHINE.a]);
         var contMarks = MACHINE.captureContinuationMarks();
-        raise(MACHINE, ExnFailContract.constructor(message, contMarks));
+        raise(MACHINE, ExnFailContract.constructor([message, contMarks]));
     };
 
     var raiseArityMismatchError = function(MACHINE, proc, received) {
@@ -129,7 +139,7 @@
                                              proc.racketArity,
                                              received]);
         var contMarks = MACHINE.captureContinuationMarks();
-        raise(MACHINE, ExnFailContractArity.constructor(message, contMarks));
+        raise(MACHINE, ExnFailContractArity.constructor([message, contMarks]));
     };
 
     var raiseOperatorApplicationError = function(MACHINE, operator) {
@@ -137,23 +147,16 @@
                                             [operator]);
         var contMarks = MACHINE.captureContinuationMarks();
         raise(MACHINE, 
-              ExnFailContract.constructor(message, contMarks));
+              ExnFailContract.constructor([message, contMarks]));
     };
 
-    var raiseOperatorIsNotClosure = function(MACHINE, operator) {
-        var message = baselib.format.format("not a closure: ~e",
-                                            [operator]);
-        var contMarks = MACHINE.captureContinuationMarks();
-        raise(MACHINE,
-              ExnFailContract.constructor(message, contMarks));
-    };
 
     var raiseOperatorIsNotPrimitiveProcedure = function(MACHINE, operator) {
         var message = baselib.format.format("not a primitive procedure: ~e",
                                             [operator]);
         var contMarks = MACHINE.captureContinuationMarks();
         raise(MACHINE,
-              ExnFailContract.constructor(message, contMarks));
+              ExnFailContract.constructor([message, contMarks]));
     };
 
 
@@ -161,7 +164,7 @@
         var message = "unimplemented kernel procedure: " + name;
         var contMarks = MACHINE.captureContinuationMarks();
         raise(MACHINE,
-              ExnFailContract.constructor(message, contMarks));
+              ExnFailContract.constructor([message, contMarks]));
     };
 
 
@@ -180,43 +183,33 @@
     exceptions.RacketError = RacketError;
     exceptions.isRacketError = isRacketError;
 
-
-    // exceptions.InternalError = InternalError;
-    // exceptions.internalError = function(v, contMarks) { return new InternalError(v, contMarks); };
-    // exceptions.isInternalError = function(x) { return x instanceof InternalError; };
-
-    // exceptions.IncompleteExn = IncompleteExn;
-    // exceptions.makeIncompleteExn = function(constructor, msg, args) { return new IncompleteExn(constructor, msg, args); };
-    // exceptions.isIncompleteExn = function(x) { return x instanceof IncompleteExn; };
-
-
     exceptions.Exn = Exn;
-    exceptions.makeExn = Exn.constructor;
+    exceptions.makeExn = function(msg, marks) { return Exn.constructor([msg, marks]); };
     exceptions.isExn = Exn.predicate;
     exceptions.exnMessage = function(exn) { return Exn.accessor(exn, 0); };
     exceptions.exnContMarks = function(exn) { return Exn.accessor(exn, 1); };
     exceptions.exnSetContMarks = function(exn, v) { Exn.mutator(exn, 1, v); };
 
     exceptions.ExnBreak = ExnBreak;
-    exceptions.makeExnBreak = ExnBreak.constructor;
+    exceptions.makeExnBreak = function(msg, marks) { return ExnBreak.constructor([msg, marks]); };
     exceptions.isExnBreak = ExnBreak.predicate;
     exceptions.exnBreakContinuation = 
         function(exn) { return ExnBreak.accessor(exn, 0); };
 
     exceptions.ExnFail = ExnFail;
-    exceptions.makeExnFail = ExnFail.constructor;
+    exceptions.makeExnFail = function(msg, marks) { return ExnFail.constructor([msg, marks]); };
     exceptions.isExnFail = ExnFail.predicate;
 
     exceptions.ExnFailContract = ExnFailContract;
-    exceptions.makeExnFailContract = ExnFailContract.constructor;
+    exceptions.makeExnFailContract = function(msg, marks) { return ExnFailContract.constructor([msg, marks]); };
     exceptions.isExnFailContract = ExnFailContract.predicate;
 
     exceptions.ExnFailContractArity = ExnFailContractArity;
-    exceptions.makeExnFailContractArity = ExnFailContractArity.constructor;
+    exceptions.makeExnFailContractArity = function(msg, marks) { return ExnFailContractArity.constructor([msg, marks]); };
     exceptions.isExnFailContractArity = ExnFailContractArity.predicate;
 
     exceptions.ExnFailContractVariable = ExnFailContractVariable;
-    exceptions.makeExnFailContractVariable = ExnFailContractVariable.constructor;
+    exceptions.makeExnFailContractVariable = function(msg, marks) { return ExnFailContractVariable.constructor([msg, marks]); };
     exceptions.isExnFailContractVariable = ExnFailContractVariable.predicate;
     exceptions.exnFailContractVariableId = 
         function(exn) { return ExnFailContractVariable.accessor(exn, 0); };
@@ -224,7 +217,7 @@
 
     exceptions.ExnFailContractDivisionByZero = ExnFailContractDivisionByZero;
     exceptions.makeExnFailContractDivisionByZero = 
-        ExnFailContractDivisionByZero.constructor;
+        function(msg, marks) { return ExnFailContractDivisionByZero.constructor([msg, marks]); };
     exceptions.isExnFailContractDivisionByZero = ExnFailContractDivisionByZero.predicate;
 
 
@@ -234,12 +227,13 @@
 
 
     exceptions.raise = raise;
+    exceptions.raiseFailure = raiseFailure;
+    exceptions.raiseContractError = raiseContractError;
     exceptions.raiseUnboundToplevelError = raiseUnboundToplevelError;
     exceptions.raiseArgumentTypeError = raiseArgumentTypeError;
     exceptions.raiseContextExpectedValuesError = raiseContextExpectedValuesError;
     exceptions.raiseArityMismatchError = raiseArityMismatchError;
     exceptions.raiseOperatorApplicationError = raiseOperatorApplicationError;
-    exceptions.raiseOperatorIsNotClosure = raiseOperatorIsNotClosure;
     exceptions.raiseOperatorIsNotPrimitiveProcedure = raiseOperatorIsNotPrimitiveProcedure;
     exceptions.raiseUnimplementedPrimitiveError = raiseUnimplementedPrimitiveError;
 

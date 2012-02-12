@@ -22,6 +22,7 @@
     var isNatural = baselib.numbers.isNatural;
     var isReal = baselib.numbers.isReal;
     var isPair = baselib.lists.isPair;
+    var isCaarPair = function(x) { return isPair(x) && isPair(x.first); };
     var isList = baselib.lists.isList;
     var isVector = baselib.vectors.isVector;
     var isString = baselib.strings.isString;
@@ -93,6 +94,7 @@
     var isOutputPort = baselib.ports.isOutputPort;
     var StandardOutputPort = baselib.ports.StandardOutputPort;
     var StandardErrorPort = baselib.ports.StandardErrorPort;
+    var StandardInputPort = baselib.ports.StandardInputPort;
     var isOutputStringPort = baselib.ports.isOutputStringPort;
 
 
@@ -106,14 +108,13 @@
     var raiseArityMismatchError = baselib.exceptions.raiseArityMismatchError;
     var raiseOperatorApplicationError = baselib.exceptions.raiseOperatorApplicationError;
     var raiseOperatorIsNotPrimitiveProcedure = baselib.exceptions.raiseOperatorIsNotPrimitiveProcedure;
-    var raiseOperatorIsNotClosure = baselib.exceptions.raiseOperatorIsNotClosure;
     var raiseUnimplementedPrimitiveError = baselib.exceptions.raiseUnimplementedPrimitiveError;
 
 
     var ArityAtLeast = baselib.arity.ArityAtLeast;
     var makeArityAtLeast = baselib.arity.makeArityAtLeast;
     var isArityMatching = baselib.arity.isArityMatching;
-    
+
 
     var testArgument = baselib.check.testArgument;
     var testArity = baselib.check.testArity;
@@ -125,59 +126,10 @@
 
 
 
-    // This value will be dynamically determined.
-    // See findStackLimit later in this file.
-    var STACK_LIMIT_ESTIMATE = 100;
-
-    // Approximately find the stack limit.
-    // This function assumes, on average, five variables or
-    // temporaries per stack frame.
-    // This will never report a number greater than MAXIMUM_CAP.
-    var findStackLimit = function(after) {
-	var MAXIMUM_CAP = 32768;
-	var n = 1;
-	var limitDiscovered = false;
-	setTimeout(
-	    function() {
-		if(! limitDiscovered) {
-		    limitDiscovered = true;
-		    after(n);
-		}
-	    },
-	    0);
-        var loop1, loop2;
-	loop1 = function loop1(x, y, z, w, k) {
-	    // Ensure termination, just in case JavaScript ever
-	    // does eliminate stack limits.
-	    if (n >= MAXIMUM_CAP) { return; }
-	    n++;
-	    return 1 + loop2(y, z, w, k, x);
-	};
-	loop2 = function loop2(x, y, z, w, k) {
-	    n++;
-	    return 1 + loop1(y, z, w, k, x);
-	};
-	try {
-	    findStackLimit.dontCare = 1 + loop1(2, "seven", [1], {number: 8}, 2);
-	} catch (e) {
-	    // ignore exceptions.
-	}
-	if (! limitDiscovered) { 
-	    limitDiscovered = true;
-	    after(n);
-	}
-    };
-
-
-    // Schedule a stack limit estimation.  If it fails, no harm, no
-    // foul (hopefully!)
-    setTimeout(function() {
-	findStackLimit(function(v) {
-	    // Trying to be a little conservative.
-	    STACK_LIMIT_ESTIMATE = Math.floor(v / 10);
-	});
-    },
-	       0);
+    // This value used to be dynamically determined, but something on iOS5
+    // breaks badly when I try this.
+    // We're very conservative now.
+     var STACK_LIMIT_ESTIMATE = 200;
 
 
 
@@ -185,17 +137,19 @@
 
 
 
-    var defaultCurrentPrintImplementation = function defaultCurrentPrintImplementation(MACHINE) {
-        if(--MACHINE.cbt < 0) { 
-            throw defaultCurrentPrintImplementation; 
+    var defaultCurrentPrintImplementation = function (MACHINE) {
+        if(--MACHINE.cbt < 0) {
+            throw defaultCurrentPrintImplementation;
         }
         var oldArgcount = MACHINE.a;
 
 	var elt = MACHINE.e[MACHINE.e.length - 1];
-	var outputPort = 
+	var outputPort =
 	    MACHINE.params.currentOutputPort;
 	if (elt !== VOID) {
-	    outputPort.writeDomNode(MACHINE, toDomNode(elt, 'print'));
+	    outputPort.writeDomNode(
+                MACHINE,
+                toDomNode(elt, MACHINE.params['print-mode']));
 	    outputPort.writeDomNode(MACHINE, toDomNode("\n", 'display'));
 	}
         MACHINE.a = oldArgcount;
@@ -205,6 +159,76 @@
 	"default-printer",
 	1,
 	defaultCurrentPrintImplementation);
+
+
+
+    //////////////////////////////////////////////////////////////////////
+
+    // Exclusive Locks.  Even though JavaScript is a single-threaded
+    // evaluator, we still have a need to create exclusive regions
+    // of evaluation, since we might inadvertantly access some state
+    // with two computations, with use of setTimeout.
+    var ExclusiveLock = function() {
+        this.locked = false;  // (U false string)
+        this.waiters = [];
+    };
+
+    // makeRandomNonce: -> string
+    // Creates a randomly-generated nonce.
+    ExclusiveLock.makeRandomNonce = function() {
+        var chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXTZabcdefghiklmnopqrstuvwxyz";
+        var LEN = 32;
+        var result = [];
+        var i;
+        for (i = 0; i < LEN; i++) {
+            result.push(chars.charAt(Math.floor(Math.random() * chars.length)));
+        }
+        return result.join('');
+    };
+
+    ExclusiveLock.prototype.acquire = function(id, onAcquire) {
+        var that = this;
+        if (!id) {
+            id = ExclusiveLock.makeRandomNonce();
+        }
+
+        var alreadyReleased = false;
+
+        if (this.locked === false) {
+            this.locked = id;
+            onAcquire.call(
+                that,
+                // releaseLock
+                function() {
+                    var waiter;
+                    if (alreadyReleased) {
+                        throw new Error(
+                            "Internal error: trying to release the lock, but already released");
+                    }
+                    if (that.locked === false) {
+                        throw new Error(
+                            "Internal error: trying to unlock the lock, but already unlocked");
+                    }
+                    that.locked = false;
+                    alreadyReleased = true;
+                    if (that.waiters.length > 0) {
+                        waiter = that.waiters.shift();
+                        setTimeout(
+                            function() {
+                                that.acquire(waiter.id, waiter.onAcquire);
+                            },
+                            0);
+                    }
+                });
+        } else {
+            this.waiters.push({ id: id,
+                                onAcquire: onAcquire } );
+        }
+    };
+    //////////////////////////////////////////////////////////////////////
+
+
+
 
 
     //////////////////////////////////////////////////////////////////////]
@@ -223,14 +247,18 @@
 	this.params = {
 
             // print-as-expression: boolean
-            'print-as-expression' : true,
+            'print-as-expression' : false,
+
+            // print-mode: (one-of "write" "print" "constructor")
+            'print-mode' : 'write',
+
 
 	    // currentDisplayer: DomNode -> Void
 	    // currentDisplayer is responsible for displaying to the browser.
 	    'currentDisplayer': function(MACHINE, domNode) {
 		$(domNode).appendTo(document.body);
 	    },
-	    
+
 	    // currentErrorDisplayer: DomNode -> Void
 	    // currentErrorDisplayer is responsible for displaying errors to the browser.
 	    'currentErrorDisplayer': function(MACHINE, domNode) {
@@ -238,18 +266,19 @@
 	    },
 
             'currentInspector': baselib.inspectors.DEFAULT_INSPECTOR,
-	    
+
 	    'currentOutputPort': new StandardOutputPort(),
 	    'currentErrorPort': new StandardErrorPort(),
+            'currentInputPort': new StandardInputPort(),
 	    'currentSuccessHandler': function(MACHINE) {},
 	    'currentErrorHandler': function(MACHINE, exn) {
                 MACHINE.params.currentErrorDisplayer(
                     MACHINE,
-                    toDomNode(exn));
+                    toDomNode(exn, MACHINE.params['print-mode']));
             },
-	    
+
 	    'currentNamespace': {},
-	    
+
 	    // These parameters control how often
 	    // control yields back to the browser
 	    // for response.  The implementation is a
@@ -270,8 +299,9 @@
 
 	};
 	this.primitives = Primitives;
+        this.exclusiveLock = new ExclusiveLock();
     };
-    
+
 
     // Try to get the continuation mark key used for procedure application tracing.
     var getTracedAppKey = function(MACHINE) {
@@ -301,7 +331,7 @@
 		return MACHINE.c.slice(i + 1,
 					     MACHINE.c.length - skip);
 	    }
-	} 
+	}
 	raise(MACHINE, new Error("captureControl: unable to find tag " + tag));
     };
 
@@ -309,20 +339,20 @@
 
     // restoreControl clears the control stack (up to, but not including the
     // prompt tagged by tag), and then appends the rest of the control frames.
-    // At the moment, the rest of the control frames is assumed to be in the 
+    // At the moment, the rest of the control frames is assumed to be in the
     // top of the environment.
     Machine.prototype.restoreControl = function(tag) {
 	var MACHINE = this;
 	var i;
 	for (i = MACHINE.c.length - 1; i >= 0; i--) {
 	    if (MACHINE.c[i].tag === tag) {
-		MACHINE.c = 
+		MACHINE.c =
 		    MACHINE.c.slice(0, i+1).concat(
 			MACHINE.e[MACHINE.e.length - 1]);
 		return;
 	    }
 	}
-	raise(MACHINE, new Error("restoreControl: unable to find tag " + tag));     
+	raise(MACHINE, new Error("restoreControl: unable to find tag " + tag));
 
     };
 
@@ -350,11 +380,11 @@
 	var lst = NULL;
 	var i;
 	for (i = 0; i < length; i++) {
-	    lst = makePair(MACHINE.e[MACHINE.e.length - depth - length + i], 
+	    lst = makePair(MACHINE.e[MACHINE.e.length - depth - length + i],
                            lst);
 	}
 	MACHINE.e.splice(MACHINE.e.length - depth - length,
-			   length, 
+			   length,
 			   lst);
 	MACHINE.a = MACHINE.a - length + 1;
     };
@@ -365,7 +395,8 @@
         var frame = this.c[this.c.length - 1];
         var marks = frame.marks;
         var i;
-        for (i = 0; i < marks.length; i++) {
+        var l = marks.length;
+        for (i = 0; i < l; i++) {
             if (key === marks[i][0]) {
                 marks[i][1] = value;
                 return;
@@ -375,25 +406,29 @@
     };
 
 
-    Machine.prototype.captureContinuationMarks = function() {
+    Machine.prototype.captureContinuationMarks = function(promptTag) {
         var kvLists = [];
         var i;
         var control = this.c;
         var tracedCalleeKey = getTracedCalleeKey(this);
         for (i = control.length-1; i >= 0; i--) {
+            if (promptTag !== null &&
+                control[i] instanceof PromptFrame && control[i].tag === promptTag) {
+                break;
+            }
             if (control[i].marks.length !== 0) {
                 kvLists.push(control[i].marks);
             }
-            
-            if (tracedCalleeKey !== null && 
+
+            if (tracedCalleeKey !== null &&
                 control[i] instanceof CallFrame &&
                 control[i].p !== null) {
                 kvLists.push([[tracedCalleeKey, control[i].p]]);
             }
-        }     
+        }
         return new baselib.contmarks.ContinuationMarkSet(kvLists);
     };
-    
+
 
 
 
@@ -413,16 +448,27 @@
     //
     var recomputeMaxNumBouncesBeforeYield;
 
-    var scheduleTrampoline = function(MACHINE, f) {
+    var scheduleTrampoline = function(MACHINE, f, release) {
         setTimeout(
-	    function() { 
-                return MACHINE.trampoline(f); 
+	    function() {
+                MACHINE._trampoline(f, false, release);
             },
-	    0);
+            0);
     };
-    var makeRestartFunction = function(MACHINE) {
-        return function(f) { 
-            return scheduleTrampoline(MACHINE, f);
+
+    // Creates a restarting function, that reschedules f in a context
+    // with the old argcount in place.
+    // Meant to be used only by the trampoline.
+    var makeRestartFunction = function(MACHINE, release, pauseLock) {
+        var oldArgcount = MACHINE.a;
+        return function(f) {
+            pauseLock.acquire(
+                undefined,
+                function(pauseReleaseLock) {
+                    MACHINE.a = oldArgcount;
+                    MACHINE._trampoline(f, false, release);
+                    pauseReleaseLock();
+                });
         };
     };
 
@@ -446,18 +492,35 @@
     };
 
 
+    // WARNING WARNING WARNING
+    //
+    // Make sure to get an exclusive lock before jumping into trampoline.
+    // Otherwise, Bad Things will happen.
+    //
+    // e.g. machine.lock.acquire('id', function(release) { machine.trampoline... release();});
     Machine.prototype.trampoline = function(initialJump, noJumpingOff) {
-	var thunk = initialJump;
-	var startTime = (new Date()).valueOf();
-	this.cbt = STACK_LIMIT_ESTIMATE;
-	this.params.numBouncesBeforeYield = 
-	    this.params.maxNumBouncesBeforeYield;
-	this.running = true;
+        var that = this;
 
-	while(true) {
+        that.exclusiveLock.acquire(
+            'trampoline',
+            function(release) {
+                that._trampoline(initialJump, noJumpingOff, release);
+            });
+    };
+
+    Machine.prototype._trampoline = function(initialJump, noJumpingOff, release) {
+        var that = this;
+        var thunk = initialJump;
+        var startTime = (new Date()).valueOf();
+        that.cbt = STACK_LIMIT_ESTIMATE;
+        that.params.numBouncesBeforeYield =
+            that.params.maxNumBouncesBeforeYield;
+        that.running = true;
+
+        while(true) {
             try {
-		thunk(this);
-		break;
+                thunk(that);
+                break;
             } catch (e) {
                 // There are a few kinds of things that can get thrown
                 // during racket evaluation:
@@ -479,9 +542,9 @@
                 // Everything else: otherwise, we send the exception value
                 // to the current error handler and exit.
                 // The running flag is set to false.
-		if (typeof(e) === 'function') {
+                if (typeof(e) === 'function') {
                     thunk = e;
-                    this.cbt = STACK_LIMIT_ESTIMATE;
+                    that.cbt = STACK_LIMIT_ESTIMATE;
 
 
                     // If we're running an a model that prohibits
@@ -490,48 +553,88 @@
                         continue;
                     }
 
-		    if (this.params.numBouncesBeforeYield-- < 0) {
-			recomputeMaxNumBouncesBeforeYield(
-			    this,
-			    (new Date()).valueOf() - startTime);
-			scheduleTrampoline(this, thunk);
-			return;
-		    }
-		} else if (e instanceof Pause) {
-                    var restart = makeRestartFunction(this);
-                    e.onPause(restart);
+                    if (that.params.numBouncesBeforeYield-- < 0) {
+                        recomputeMaxNumBouncesBeforeYield(
+                            that,
+                            (new Date()).valueOf() - startTime);
+                        scheduleTrampoline(that, thunk, release);
+                        return;
+                    }
+                } else if (e instanceof Pause) {
+                    var pauseLock = new ExclusiveLock();
+                    var oldArgcount = that.a;
+                    var restarted = false;
+                    var restart = function(f) {
+                        pauseLock.acquire(
+                            undefined,
+                            function(releasePauseLock) {
+                                restarted = true;
+                                that.a = oldArgcount;
+                                that._trampoline(f, false, release);
+                                releasePauseLock();
+                            });
+                    };
+                    var internalCall = function(proc, success, fail) {
+                        var i;
+                        if (restarted) {
+                            return;
+                        }
+                        var args = [];
+                        for (i = 3; i < arguments.length; i++) {
+                            args.push(arguments[i]);
+                        }
+                        pauseLock.acquire(
+                            undefined,
+                            function(release) {
+                                var newSuccess = function() {
+                                    success.apply(null, arguments);
+                                    release();
+                                };
+                                var newFail = function() {
+                                    fail.apply(null, arguments);
+                                    release();
+                                };
+                                baselib.functions.internalCallDuringPause.apply(
+                                    null, [that, proc, newSuccess, newFail].concat(args));
+                            });
+                    };
+                    e.onPause(restart, internalCall);
                     return;
                 } else if (e instanceof HaltError) {
-		    this.running = false;
-                    e.onHalt(this);
+                    that.running = false;
+                    e.onHalt(that);
+                    release();
                     return;
                 } else {
-		    // General error condition: just exit out
-		    // of the trampoline and call the current error handler.
-		    this.running = false;
-                    this.params.currentErrorHandler(this, e);
-	            return;
-		}
+                    // General error condition: just exit out
+                    // of the trampoline and call the current error handler.
+                    that.running = false;
+                    that.params.currentErrorHandler(that, e);
+                    release();
+                    return;
+                }
             }
-	}
-	this.running = false;
-        var that = this;
-        this.params.currentSuccessHandler(this);
-	return;
+        }
+        that.running = false;
+        that.params.currentSuccessHandler(that);
+        release();
+        return;
+
     };
+
 
     // recomputeGas: state number -> number
     recomputeMaxNumBouncesBeforeYield = function(MACHINE, observedDelay) {
 	// We'd like to see a delay of DESIRED_DELAY_BETWEEN_BOUNCES so
 	// that we get MACHINE.params.desiredYieldsPerSecond bounces per
 	// second.
-	var DESIRED_DELAY_BETWEEN_BOUNCES = 
+	var DESIRED_DELAY_BETWEEN_BOUNCES =
 	    (1000 / MACHINE.params.desiredYieldsPerSecond);
 	var ALPHA = 50;
 	var delta = (ALPHA * ((DESIRED_DELAY_BETWEEN_BOUNCES -
-			       observedDelay) / 
+			       observedDelay) /
 			      DESIRED_DELAY_BETWEEN_BOUNCES));
-	MACHINE.params.maxNumBouncesBeforeYield = 
+	MACHINE.params.maxNumBouncesBeforeYield =
             Math.max(MACHINE.params.maxNumBouncesBeforeYield + delta,
                      1);
     };
@@ -559,13 +662,13 @@
 
     // There is a single, distinguished default continuation prompt tag
     // that's used to wrap around toplevel prompts.
-    var DEFAULT_CONTINUATION_PROMPT_TAG = 
-	new ContinuationPromptTag("default-continuation-prompt-tag");
+    var DEFAULT_CONTINUATION_PROMPT_TAG =
+        baselib.contmarks.DEFAULT_CONTINUATION_PROMPT_TAG;
 
 
 
 
-    
+
 
 
 
@@ -665,13 +768,18 @@
 
     var checkClosureAndArity = function(M) {
         if(!(M.p instanceof Closure)){
-            raiseOperatorIsNotClosure(M,M.p);
+            raiseOperatorApplicationError(M,M.p);
         }
         if(!isArityMatching(M.p.racketArity,M.a)) {
             raiseArityMismatchError(M,M.p,M.a);
         }
     };
 
+    var checkPrimitiveArity = function(M) {
+        if(!isArityMatching(M.p.racketArity,M.a)) {
+            raiseArityMismatchError(M,M.p,M.a);
+        }
+    };
 
 
     //////////////////////////////////////////////////////////////////////
@@ -683,10 +791,16 @@
     };
     var si_context_expected_1 = function(M) { raiseContextExpectedValuesError(M, 1); }
 
-
-
-
-
+    // A block that omits the multiple values returned on the stack and
+    // continues on with the target function f.
+    var si_pop_multiple_values_and_continue = function(target) {
+        var f = function(M) {
+            if(--M.cbt<0) { throw f; }
+            M.e.length -= (M.a-1);
+            return target(M);
+        };
+        return f;
+    };
 
 
 
@@ -706,7 +820,7 @@
     exports['installPrimitiveProcedure'] = installPrimitiveProcedure;
     exports['makePrimitiveProcedure'] = makePrimitiveProcedure;
     exports['Primitives'] = Primitives;
-    
+
     exports['ready'] = ready;
     // Private: the runtime library will set this flag to true when
     // the library has finished loading.
@@ -721,7 +835,7 @@
     exports['ModuleRecord'] = ModuleRecord;
     exports['VariableReference'] = VariableReference;
     exports['ContinuationPromptTag'] = ContinuationPromptTag;
-    exports['DEFAULT_CONTINUATION_PROMPT_TAG'] = 
+    exports['DEFAULT_CONTINUATION_PROMPT_TAG'] =
 	DEFAULT_CONTINUATION_PROMPT_TAG;
     exports['NULL'] = NULL;
     exports['VOID'] = VOID;
@@ -747,7 +861,6 @@
     exports['raiseArityMismatchError'] = raiseArityMismatchError;
     exports['raiseOperatorApplicationError'] = raiseOperatorApplicationError;
     exports['raiseOperatorIsNotPrimitiveProcedure'] = raiseOperatorIsNotPrimitiveProcedure;
-    exports['raiseOperatorIsNotClosure'] = raiseOperatorIsNotClosure;
     exports['raiseUnimplementedPrimitiveError'] = raiseUnimplementedPrimitiveError;
 
 
@@ -782,6 +895,7 @@
 
     // Type predicates
     exports['isPair'] = isPair;
+    exports['isCaarPair'] = isCaarPair;
     exports['isList'] = isList;
     exports['isVector'] = isVector;
     exports['isOutputPort'] = isOutputPort;
@@ -822,6 +936,6 @@
     exports['si_context_expected'] = si_context_expected;
     exports['si_context_expected_1'] = si_context_expected_1;
     exports['checkClosureAndArity'] = checkClosureAndArity;
-
+    exports['checkPrimitiveArity'] = checkPrimitiveArity;
 
 }(this.plt, this.plt.baselib));

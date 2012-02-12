@@ -96,7 +96,7 @@
     };
 
     Str.prototype.replace = function (expr, newStr) {
-	return Str.fromString( this.toString().replace(expr, newStr) );
+	return Str.fromString(this.toString().replace(expr, newStr) );
     };
 
 
@@ -107,17 +107,21 @@
 	return this.toString() === other.toString();
     };
 
+    Str.prototype.hashCode = function(depth) {
+        return baselib.hashes.getEqualHashCode(this.toString());
+    };
+
 
     Str.prototype.set = function (i, c) {
 	this.chars[i] = c;
     };
 
     Str.prototype.toUpperCase = function () {
-	return Str.fromString( this.chars.join("").toUpperCase() );
+	return Str.fromString(this.chars.join("").toUpperCase() );
     };
 
     Str.prototype.toLowerCase = function () {
-	return Str.fromString( this.chars.join("").toLowerCase() );
+	return Str.fromString(this.chars.join("").toLowerCase() );
     };
 
     Str.prototype.match = function (regexpr) {
