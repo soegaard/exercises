@@ -1,5 +1,5 @@
-stxmat-exercises
-================
+exercises
+=========
 
 Install and Run
 ---------------
