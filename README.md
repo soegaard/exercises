@@ -4,7 +4,7 @@ stxmat-exercises
 Install and Run
 ---------------
 
-1. Download code using the "Download" button on the [stxmat-exercises GitHub page](https://github.com/soegaard/stxmat-exercises "Github Page").
+1. Download code using the "Download" button on the [exercises GitHub page](https://github.com/soegaard/exercises "Github Page").
 2. Unpack the file.
 3. Open build/stxmat-exercises.xhtml in your browser.
 4. Enjoy
